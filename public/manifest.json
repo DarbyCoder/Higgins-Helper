@@ -1,0 +1,13 @@
+{
+  "name": "HigginsHelper",
+  "short_name": "HigginsHelper",
+  "description": "Clark University daily calorie tracker and AI nutritionist",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090f",
+  "theme_color": "#c41e3a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
