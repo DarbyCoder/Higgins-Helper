@@ -181,7 +181,7 @@ export default function ProfilePage() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
           {([
-            { label: "Calories", val: previewTargets.calories, unit: "kcal", color: "#c41e3a" },
+            { label: "Calories", val: previewTargets.calories, unit: "cal", color: "#c41e3a" },
             { label: "Protein",  val: previewTargets.protein,  unit: "g",    color: "#10b981" },
             { label: "Carbs",    val: previewTargets.totalCarbs,unit: "g",   color: "#3b82f6" },
             { label: "Fat",      val: previewTargets.totalFat, unit: "g",    color: "#f59e0b" },

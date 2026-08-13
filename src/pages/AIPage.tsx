@@ -8,13 +8,24 @@ import { useDateStore, useFoodLogStore, useUserStore, useAIStore } from "@/store
 
 export default function AIPage() {
   const { selectedDate }     = useDateStore();
-  const { getDailyTotals }   = useFoodLogStore();
+  const { getDailyTotals, getDailyEntries } = useFoodLogStore();
   const { macroTargets, userProfile } = useUserStore();
   const { chatHistory, isLoading, sendMessage, clearChat } = useAIStore();
 
   const [input, setInput]    = useState("");
   const bottomRef            = useRef<HTMLDivElement>(null);
   const totals               = getDailyTotals(selectedDate);
+
+  const getYesterdayString = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const date = new Date(y, m - 1, d - 1);
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${mm}-${dd}`;
+  };
+
+  const formatEntries = (entries: any[]) => 
+    entries.map(e => ({ name: e.menuItemName, calories: e.calories, mealSlot: e.mealSlot }));
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,14 +48,16 @@ export default function AIPage() {
       userName: userProfile?.name,
       goal: userProfile?.goal,
       dietaryRestrictions: userProfile?.dietaryRestrictions,
+      todayLog: formatEntries(getDailyEntries(selectedDate)),
+      yesterdayLog: formatEntries(getDailyEntries(getYesterdayString(selectedDate))),
     });
   }
 
   return (
     <div style={{
       display: "flex", flexDirection: "column",
-      height: "calc(100dvh - 4rem)", /* full height minus bottom nav */
-      maxWidth: 480, margin: "0 auto", padding: "0 1rem",
+      flex: 1, minHeight: 0,
+      maxWidth: 480, margin: "0 auto", padding: "0 1rem", width: "100%"
     }}>
       {/* Header */}
       <div style={{ padding: "1rem 0 0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
@@ -72,9 +85,9 @@ export default function AIPage() {
         color: "var(--color-text-2)",
         flexShrink: 0,
       }}>
-        📊 Today: <strong style={{ color: "var(--color-text-1)" }}>{totals.calories.toLocaleString()} kcal</strong> eaten
+        📊 Today: <strong style={{ color: "var(--color-text-1)" }}>{totals.calories.toLocaleString()} cal</strong> eaten
         · <strong>{totals.protein.toFixed(0)}g</strong> protein
-        · Goal: <strong>{macroTargets.calories.toLocaleString()} kcal</strong>
+        · Goal: <strong>{macroTargets.calories.toLocaleString()} cal</strong>
       </div>
 
       {/* Messages area */}
@@ -173,20 +186,21 @@ export default function AIPage() {
 
       {/* Input bar */}
       <div style={{
-        display: "flex", gap: "0.5rem",
+        display: "flex", gap: "0.5rem", alignItems: "flex-end",
         padding: "0.75rem 0",
-        paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+        paddingBottom: "calc(4.75rem + env(safe-area-inset-bottom, 0px))",
         flexShrink: 0,
         borderTop: "1px solid var(--color-border)",
       }}>
-        <input
+        <textarea
           className="input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }}}
           placeholder="Ask about your nutrition..."
           disabled={isLoading}
-          style={{ flex: 1 }}
+          rows={Math.min(4, input.split("\n").length || 1)}
+          style={{ flex: 1, resize: "none", padding: "0.65rem 0.85rem", lineHeight: 1.4 }}
         />
         <button
           className="btn-primary"

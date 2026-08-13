@@ -60,7 +60,7 @@ export default function LogEntryRow({ entry }: Props) {
       {/* Calories + delete */}
       <div style={{ flexShrink: 0, textAlign: "right" }}>
         <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--color-primary-light)" }}>{entry.calories}</div>
-        <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)" }}>kcal</div>
+        <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)" }}>cal</div>
       </div>
 
       <button onClick={handleRemove} style={{

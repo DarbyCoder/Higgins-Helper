@@ -63,7 +63,7 @@ export default function MenuItemCard({ item, onSelect }: Props) {
           {item.calories}
         </div>
         <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)", lineHeight: 1.3 }}>
-          kcal
+          cal
         </div>
         <div style={{ fontSize: "0.65rem", color: "var(--color-text-3)", marginTop: 2 }}>
           P:{item.protein.toFixed(0)}g C:{item.totalCarbs.toFixed(0)}g

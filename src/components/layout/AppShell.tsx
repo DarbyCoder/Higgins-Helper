@@ -26,7 +26,7 @@ export default function AppShell({ children }: Props) {
       {/* App content */}
       <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
         <Header />
-        <main style={{ flex: 1 }}>
+        <main style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
           {children}
         </main>
         <BottomNav />

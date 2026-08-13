@@ -14,7 +14,7 @@ import MenuItemCard from "./MenuItemCard";
 
 interface Props {
   location: DiningLocation;
-  onSelectItem: (item: MenuItem, locationName: string) => void;
+  onSelectItem: (item: MenuItem, locationName: string, mealName?: string) => void;
 }
 
 export default function LocationCard({ location, onSelectItem }: Props) {
@@ -22,8 +22,11 @@ export default function LocationCard({ location, onSelectItem }: Props) {
   const [activeMeal, setActiveMeal] = useState(location.meals[0]?.name ?? "");
 
   // ── Per-station collapse state ──────────────────────────────────────────
-  // A Set of station IDs that are COLLAPSED. Empty Set = all expanded.
-  const [collapsedStations, setCollapsed] = useState<Set<string>>(new Set());
+  // A Set of station IDs that are COLLAPSED. Seeded with every station ID
+  // so all stations start collapsed. Empty Set would mean all expanded.
+  const [collapsedStations, setCollapsed] = useState<Set<string>>(
+    () => new Set(location.meals.flatMap((m) => m.stations.map((s) => s.id)))
+  );
 
   const { searchQuery, activeDietaryFilters } = useUIStore();
 
@@ -173,7 +176,7 @@ export default function LocationCard({ location, onSelectItem }: Props) {
                       <MenuItemCard
                         key={item.id}
                         item={item}
-                        onSelect={(i) => onSelectItem(i, location.name)}
+                        onSelect={(i) => onSelectItem(i, location.name, currentMeal?.name)}
                       />
                     ))}
                   </div>

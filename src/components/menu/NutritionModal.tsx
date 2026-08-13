@@ -12,6 +12,7 @@ import { useFoodLogStore, useDateStore } from "@/stores";
 interface Props {
   item: MenuItem | null;
   locationName: string;
+  sourceMealName?: string;
   onClose: () => void;
 }
 
@@ -136,7 +137,7 @@ const MEAL_SLOTS: { value: MealSlot; label: string }[] = [
   { value: "snack",     label: "Snack" },
 ];
 
-export default function NutritionModal({ item, locationName, onClose }: Props) {
+export default function NutritionModal({ item, locationName, sourceMealName, onClose }: Props) {
   const [servings, setServings]   = useState(1);
   const [mealSlot, setMealSlot]   = useState<MealSlot>("lunch");
   const [justAdded, setJustAdded] = useState(false);
@@ -145,7 +146,18 @@ export default function NutritionModal({ item, locationName, onClose }: Props) {
   const { addFoodEntry }  = useFoodLogStore();
 
   // Reset state when item changes
-  useEffect(() => { setServings(1); setJustAdded(false); }, [item]);
+  useEffect(() => { 
+    setServings(1); 
+    setJustAdded(false); 
+    
+    if (sourceMealName) {
+      const name = sourceMealName.toLowerCase();
+      if (name.includes("breakfast")) setMealSlot("breakfast");
+      else if (name.includes("lunch")) setMealSlot("lunch");
+      else if (name.includes("dinner")) setMealSlot("dinner");
+      else setMealSlot("snack");
+    }
+  }, [item, sourceMealName]);
 
   if (!item) return null;
 
@@ -254,7 +266,7 @@ export default function NutritionModal({ item, locationName, onClose }: Props) {
             </select>
           </div>
           <button className="btn-primary" onClick={handleAdd} style={{ width: "100%" }}>
-            {justAdded ? "✓ Added!" : `Add ${Math.round(item.calories * servings)} kcal to ${mealSlot}`}
+            {justAdded ? "✓ Added!" : `Add ${Math.round(item.calories * servings)} cal to ${mealSlot}`}
           </button>
         </div>
       </div>

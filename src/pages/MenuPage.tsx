@@ -4,7 +4,7 @@
  * Fetches from the backend API, shows per-location collapsible cards,
  * and opens the NutritionModal on item tap.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useDateStore, useMenuStore } from "@/stores";
 import type { MenuItem } from "@/types";
 import DatePicker from "@/components/menu/DatePicker";
@@ -18,13 +18,15 @@ export default function MenuPage() {
 
   const [selectedItem, setSelectedItem]     = useState<MenuItem | null>(null);
   const [selectedLocation, setSelectedLoc]  = useState("");
+  const [selectedMeal, setSelectedMeal]     = useState("");
 
   // Fetch menu whenever the selected date changes
   useEffect(() => { fetchMenu(selectedDate); }, [selectedDate, fetchMenu]);
 
-  function handleSelectItem(item: MenuItem, locationName: string) {
+  function handleSelectItem(item: MenuItem, locationName: string, mealName?: string) {
     setSelectedItem(item);
     setSelectedLoc(locationName);
+    if (mealName) setSelectedMeal(mealName);
   }
 
   const openLocations = menuData?.locations.filter((l) => l.isOpen) ?? [];
@@ -45,18 +47,8 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Loading state */}
-      {isLoading && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          {[1, 2].map((i) => (
-            <div key={i} style={{
-              height: 120, borderRadius: "var(--radius-lg)",
-              background: "var(--color-surface)",
-              animation: "pulse 1.5s ease-in-out infinite",
-            }} />
-          ))}
-        </div>
-      )}
+      {/* Loading state — shimmer skeletons shaped like real LocationCards */}
+      {isLoading && <MenuLoadingSkeleton />}
 
       {/* Error state */}
       {error && !isLoading && (
@@ -112,12 +104,104 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Nutrition detail modal */}
       <NutritionModal
         item={selectedItem}
         locationName={selectedLocation}
+        sourceMealName={selectedMeal}
         onClose={() => setSelectedItem(null)}
       />
+    </div>
+  );
+}
+
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
+
+/**
+ * Renders three shimmer-animated cards that mirror the real LocationCard shape:
+ *   - Header row (location name + status badge)
+ *   - Subtitle line (meal period + hours)
+ *   - Tab chip row (meal period pills)
+ *   - Two station rows (station label + item stubs)
+ *
+ * Uses the `.skeleton` shimmer class from index.css — no extra keyframes needed.
+ */
+function MenuLoadingSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      {[0, 1, 2].map((i) => (
+        <SkeletonCard key={i} delay={i * 0.12} />
+      ))}
+    </div>
+  );
+}
+
+function SkeletonCard({ delay }: { delay: number }) {
+  const sk = (w: string, h: string, radius = "var(--radius-sm)") => ({
+    width: w,
+    height: h,
+    borderRadius: radius,
+  } as CSSProperties);
+
+  return (
+    <div
+      className="glass"
+      style={{
+        overflow: "hidden",
+        opacity: 0,
+        animation: `fade-up 0.4s ease ${delay}s forwards`,
+      }}
+    >
+      {/* Header */}
+      <div style={{ padding: "0.9rem 1rem 0.75rem", display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {/* Location name */}
+          <div className="skeleton" style={sk("55%", "1rem")} />
+          {/* Status badge */}
+          <div className="skeleton" style={sk("3.5rem", "1.4rem", "var(--radius-full)")} />
+        </div>
+
+        {/* Subtitle: meal period + hours */}
+        <div className="skeleton" style={sk("40%", "0.65rem")} />
+
+        {/* Meal tab chips */}
+        <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.1rem" }}>
+          {["4rem", "3.2rem", "3.6rem"].map((w, j) => (
+            <div key={j} className="skeleton" style={sk(w, "1.5rem", "var(--radius-full)")} />
+          ))}
+        </div>
+      </div>
+
+      {/* Station rows */}
+      <div style={{ borderTop: "1px solid var(--color-border)" }}>
+        {[3, 2].map((itemCount, si) => (
+          <div
+            key={si}
+            style={{ borderBottom: si === 0 ? "1px solid var(--color-border)" : "none" }}
+          >
+            {/* Station header */}
+            <div style={{ padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div className="skeleton" style={sk("35%", "0.75rem")} />
+              <div className="skeleton" style={sk("2rem", "0.6rem")} />
+            </div>
+
+            {/* Item stubs */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", padding: "0 0.75rem 0.75rem" }}>
+              {Array.from({ length: itemCount }).map((_, ii) => (
+                <div
+                  key={ii}
+                  className="skeleton"
+                  style={{
+                    height: "3.2rem",
+                    borderRadius: "var(--radius-md)",
+                    // Vary widths slightly so it doesn't look like a grid
+                    opacity: 1 - ii * 0.08,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

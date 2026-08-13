@@ -32,13 +32,13 @@ export default function DailyOverview({ totals, targets }: Props) {
       <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginBottom: "1.25rem" }}>
         <CalorieRing consumed={totals.calories} target={targets.calories} size={150} thickness={18} />
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-          <QuickStat label="Goal" value={targets.calories.toLocaleString()} unit="kcal" color="var(--color-text-3)" />
-          <QuickStat label="Burned" value="—" unit="kcal" color="var(--color-text-3)" />
+          <QuickStat label="Goal" value={targets.calories.toLocaleString()} unit="cal" color="var(--color-text-3)" />
+          <QuickStat label="Burned" value="—" unit="cal" color="var(--color-text-3)" />
           <div style={{ height: 1, background: "var(--color-border)" }} />
           <QuickStat
             label="Net"
             value={(targets.calories - totals.calories).toLocaleString()}
-            unit="kcal"
+            unit="cal"
             color={totals.calories > targets.calories ? "#ef4444" : "#10b981"}
           />
         </div>

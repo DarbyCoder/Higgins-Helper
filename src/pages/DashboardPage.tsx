@@ -70,7 +70,7 @@ export default function DashboardPage() {
             ? getDailyQuote()
             : pct < 1.05
             ? "Great job — you're right on track with your calorie goal! 🎯"
-            : `You've exceeded today's goal by ${Math.round(totals.calories - macroTargets.calories)} kcal. Consider lighter options for your next meal.`}
+            : `You've exceeded today's goal by ${Math.round(totals.calories - macroTargets.calories)} cal. Consider lighter options for your next meal.`}
         </p>
       </div>
 
@@ -107,7 +107,7 @@ export default function DashboardPage() {
                   {entry.menuItemName}
                 </span>
                 <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--color-primary-light)", flexShrink: 0, marginLeft: "0.5rem" }}>
-                  {entry.calories} kcal
+                  {entry.calories} cal
                 </span>
               </div>
             ))}

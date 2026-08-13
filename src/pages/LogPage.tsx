@@ -80,9 +80,6 @@ export default function LogPage() {
             <button className="btn-primary" onClick={() => navigate("/menu")}>
               Browse Higgins Menu
             </button>
-            <button className="btn-ghost" onClick={() => navigate("/add-food")}>
-              Custom Food
-            </button>
           </div>
         </div>
       )}
@@ -101,7 +98,7 @@ export default function LogPage() {
                     {emoji} {label}
                   </div>
                   <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary-light)" }}>
-                    {mealCals} kcal
+                    {mealCals} cal
                   </span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>

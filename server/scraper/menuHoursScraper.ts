@@ -145,22 +145,26 @@ function parseLocationRow(
   // but we rebuild it to guarantee consistency and avoid stale dates from the site)
   const cleanUrl = `https://clark.nmcfood.com/locations/${slug}/?date=${date}`;
 
-  // ── Detect closed status ──
-  const rowText = $row.text().toLowerCase();
-  const isOpen = !rowText.includes(CLOSED_INDICATOR);
-
   // ── Parse hours from the second <td> in the row ──
   const cells = $row.find("td");
-  // The hours cell is the second td (index 1); first td contains the location anchor
   const hoursCell = cells.eq(1);
   const meals = parseHoursCell($, hoursCell);
+
+  // ── Determine open status ──
+  // Base isOpen on parsed meals — more reliable than scanning row text for "closed".
+  // The word "closed" can appear inside unrelated strings; presence of valid meal
+  // periods is ground truth.
+  const hoursText = hoursCell.text().trim();
+  const isOpen =
+    meals.length > 0 ||
+    (!hoursText.toLowerCase().includes(CLOSED_INDICATOR) && hoursText.length > 0);
 
   return {
     slug,
     name,
     url: cleanUrl,
     isOpen,
-    hoursText: hoursCell.text().trim(), // Kept for debugging
+    hoursText,
     meals,
   };
 }

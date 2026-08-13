@@ -112,8 +112,8 @@ export default function CalorieRing({ consumed, target, size = 180, thickness = 
         </span>
         <span style={{ fontSize: "0.7rem", color: "var(--color-text-2)", marginTop: 2 }}>
           {isOver
-            ? `+${(consumed - target).toLocaleString()} kcal`
-            : `${remaining.toLocaleString()} left`}
+            ? `+${(consumed - target).toLocaleString()} cal`
+            : `${(target - consumed).toLocaleString()} cal remaining`}
         </span>
       </div>
     </div>

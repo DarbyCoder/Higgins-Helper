@@ -24,6 +24,8 @@ interface AIChatRequestBody {
     userName?: string;
     goal?: string;
     dietaryRestrictions?: string[];
+    todayLog?: Array<{ name: string; calories: number; mealSlot: string }>;
+    yesterdayLog?: Array<{ name: string; calories: number; mealSlot: string }>;
   };
   history: Array<{ role: "user" | "assistant"; content: string }>;
 }

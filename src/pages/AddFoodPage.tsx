@@ -497,7 +497,7 @@ function ManualMode({ draft, onChange, onConfirm }: {
       <div className="glass" style={{ padding: "1rem" }}>
         <div className="section-title">Nutrition Per Serving</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
-          <Field label="Calories (kcal) *">
+          <Field label="Calories (cal) *">
             <input className="input" type="number" min={0} placeholder="0" value={draft.calories || ""} onChange={num("calories")} />
           </Field>
           <Field label="Protein (g)">
@@ -596,7 +596,7 @@ function ConfirmMode({ draft, servings, setServings, mealSlot, setMealSlot, onAd
       </div>
 
       <button className="btn-primary" onClick={onAdd} style={{ width: "100%", justifyContent: "center", padding: "0.9rem" }}>
-        {added ? "✓ Added! Redirecting…" : `Add ${scaled.calories} kcal to ${mealSlot}`}
+        {added ? "✓ Added! Redirecting…" : `Add ${scaled.calories} cal to ${mealSlot}`}
       </button>
     </div>
   );

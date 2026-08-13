@@ -36,6 +36,8 @@ export interface ChatContext {
   userName?: string;
   goal?: string;
   dietaryRestrictions?: string[];
+  todayLog?: Array<{ name: string; calories: number; mealSlot: string }>;
+  yesterdayLog?: Array<{ name: string; calories: number; mealSlot: string }>;
 }
 
 export interface ChatMessage {
@@ -49,11 +51,19 @@ function buildSystemPrompt(ctx: ChatContext): string {
   const { dailyTotals: t, macroTargets: targets, userName, goal, dietaryRestrictions } = ctx;
 
   const caloriesLeft = targets.calories - t.calories;
-  const proteinLeft  = targets.protein - t.protein;
+  const proteinLeft = targets.protein - t.protein;
 
   const restrictionText = dietaryRestrictions?.length
     ? `Their dietary preferences include: ${dietaryRestrictions.join(", ")}.`
     : "";
+
+  const formatLog = (log?: Array<{ name: string; calories: number; mealSlot: string }>) => {
+    if (!log || log.length === 0) return "No food logged.";
+    return log.map((item) => `- ${item.mealSlot}: ${item.name} (${item.calories} cal)`).join("\n");
+  };
+
+  const todayLogStr = formatLog(ctx.todayLog);
+  const yesterdayLogStr = formatLog(ctx.yesterdayLog);
 
   return `You are HigginsHelper's AI Nutritionist, a friendly, expert nutrition advisor for Clark University students.
 You have access to the user's real-time food log and nutritional data.
@@ -63,13 +73,19 @@ USER CONTEXT:
 - Goal: ${goal ?? "maintain weight"}
 - ${restrictionText}
 
-TODAY'S NUTRITION LOG:
+TODAY'S MACROS:
 - Calories eaten: ${t.calories} / ${targets.calories} target (${caloriesLeft > 0 ? `${caloriesLeft} remaining` : `${Math.abs(caloriesLeft)} over goal`})
 - Protein: ${t.protein.toFixed(0)}g / ${targets.protein}g (${proteinLeft > 0 ? `${proteinLeft.toFixed(0)}g to go` : "goal reached!"})
 - Carbohydrates: ${t.totalCarbs.toFixed(0)}g / ${targets.totalCarbs}g
 - Fat: ${t.totalFat.toFixed(0)}g / ${targets.totalFat}g
 - Fiber: ${t.fiber.toFixed(0)}g / ${targets.fiber}g
 - Sodium: ${Math.round(t.sodium)}mg / ${targets.sodium}mg
+
+TODAY'S FOOD ITEMS LOGGED:
+${todayLogStr}
+
+YESTERDAY'S FOOD ITEMS LOGGED:
+${yesterdayLogStr}
 
 INSTRUCTIONS:
 1. Be concise, warm, and encouraging — students are busy.
@@ -83,7 +99,7 @@ INSTRUCTIONS:
 // ─── Gemini API Client ───────────────────────────────────────────────────────
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_MODEL    = "gemini-1.5-flash";
+const GEMINI_MODEL    = "gemini-3.5-flash-lite";
 
 interface GeminiContent {
   role: "user" | "model";
@@ -147,8 +163,8 @@ export async function getAIResponse(
       maxOutputTokens: 512,
     },
     safetySettings: [
-      { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-      { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
       { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
       { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
     ],
@@ -173,7 +189,7 @@ export async function getAIResponse(
     const axiosErr = err as AxiosError;
     if (axiosErr.response) {
       const status = axiosErr.response.status;
-      const data   = axiosErr.response.data as { error?: { message?: string } };
+      const data = axiosErr.response.data as { error?: { message?: string } };
       throw new Error(
         `[aiNutritionist] Gemini API error ${status}: ${data?.error?.message ?? axiosErr.message}`
       );
