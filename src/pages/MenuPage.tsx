@@ -5,6 +5,7 @@
  * and opens the NutritionModal on item tap.
  */
 import { useEffect, useState, type CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDateStore, useMenuStore } from "@/stores";
 import type { MenuItem, DiningLocation } from "@/types";
 
@@ -13,6 +14,7 @@ import LocationCard from "@/components/menu/LocationCard";
 import NutritionModal from "@/components/menu/NutritionModal";
 
 export default function MenuPage() {
+  const navigate = useNavigate();
   const { selectedDate } = useDateStore();
   const { menuData, isLoading, error, fetchMenu } = useMenuStore();
 
@@ -114,6 +116,16 @@ export default function MenuPage() {
             <LocationCard key={loc.slug} location={loc} onSelectItem={handleSelectItem} />
           ))}
         </div>
+      )}
+
+      {!isLoading && !error && (
+        <button
+          className="btn-primary"
+          onClick={() => navigate("/log")}
+          style={{ width: "100%", justifyContent: "center", fontSize: "0.9rem", padding: "0.9rem", marginTop: "1.5rem" }}
+        >
+          Check Food Log →
+        </button>
       )}
 
       <NutritionModal

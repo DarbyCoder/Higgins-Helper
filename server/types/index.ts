@@ -1,6 +1,6 @@
 /**
  * @file server/types/index.ts
- * @description Shared TypeScript interfaces for the HigginsHelper backend.
+ * @description Shared TypeScript interfaces for the Higgins Helper backend.
  * These types are the single source of truth for all scraped menu data structures.
  */
 

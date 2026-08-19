@@ -33,7 +33,7 @@ const DIETARY_OPTIONS = [
 ];
 
 export default function ProfilePage() {
-  const { userProfile, setUserProfile, macroTargets, setMacroTargets, resetMacroTargetsToAuto, macroTargetsManuallySet } = useUserStore();
+  const { userProfile, setUserProfile, macroTargets, setMacroTargets, resetMacroTargetsToAuto, macroTargetsManuallySet, activeOverrideIndex, setActiveOverrideIndex } = useUserStore();
   const { theme, toggleTheme } = useThemeStore();
   const { user, signOut } = useAuth();
   const isDark = theme === "dark";
@@ -250,6 +250,28 @@ export default function ProfilePage() {
             }}>
               ⚠️ Auto-calculation is paused. Toggle off to restore.
             </div>
+
+            {/* Override Presets Tabs */}
+            <div style={{ display: "flex", gap: "0.25rem", marginBottom: "0.75rem", background: "var(--color-surface-2)", padding: "0.25rem", borderRadius: "var(--radius-md)" }}>
+              {[1, 2, 3, 4].map((num, i) => {
+                const isActive = activeOverrideIndex === i;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setActiveOverrideIndex(i)}
+                    style={{
+                      flex: 1, padding: "0.4rem 0", fontSize: "0.75rem", fontWeight: 600,
+                      borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer",
+                      background: isActive ? "var(--color-primary)" : "transparent",
+                      color: isActive ? "#fff" : "var(--color-text-3)",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    Set {num}
+                  </button>
+                );
+              })}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
               {([
                 { label: "Calories (cal)", key: "calories" as const, color: "#c41e3a" },
@@ -310,7 +332,7 @@ export default function ProfilePage() {
           background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
           fontSize: "0.75rem", color: "#f59e0b", lineHeight: 1.5,
         }}>
-          ⚠️ <strong>Beta feature.</strong> Push notifications require installing HigginsHelper as a PWA. Tap the share button in your browser and choose "Add to Home Screen" first.
+          ⚠️ <strong>Beta feature.</strong> Push notifications require installing Higgins Helper as a PWA. Tap the share button in your browser and choose "Add to Home Screen" first.
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
@@ -329,7 +351,7 @@ export default function ProfilePage() {
               }
               const perm = await Notification.requestPermission();
               if (perm === "granted") {
-                new Notification("HigginsHelper 🥗", {
+                new Notification("Higgins Helper 🥗", {
                   body: "Notifications enabled! We'll remind you to log your meals.",
                   icon: "/logo-square.jpg",
                 });
@@ -462,7 +484,7 @@ export default function ProfilePage() {
       </div>
 
       <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", marginTop: "1rem" }}>
-        HigginsHelper v0.2.0 · Clark University · Data synced to cloud
+        Higgins Helper v0.2.1 · Clark University · Data synced to cloud
       </p>
     </div>
   );

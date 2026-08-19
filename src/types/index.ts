@@ -1,6 +1,6 @@
 /**
  * @file src/types/index.ts
- * @description Frontend TypeScript interfaces for HigginsHelper.
+ * @description Frontend TypeScript interfaces for Higgins Helper.
  * These mirror the server-side types but are scoped to what the client needs.
  * The menu data types match the DailyMenuResponse shape returned by /api/menu.
  */

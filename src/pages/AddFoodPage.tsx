@@ -61,7 +61,7 @@ async function lookupBarcode(barcode: string): Promise<FoodDraft | null> {
   try {
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,nutriments,serving_size`,
-      { headers: { "User-Agent": "HigginsHelper/1.0 (nicke@clarku.edu)" } }
+      { headers: { "User-Agent": "Higgins Helper/1.0 (nicke@clarku.edu)" } }
     );
     const data: OFFResponse = await res.json();
     if (data.status !== 1 || !data.product) return null;

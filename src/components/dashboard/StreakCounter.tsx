@@ -50,11 +50,19 @@ export default function StreakCounter({ foodLog }: Props) {
           {streak}-day streak
         </div>
         <div style={{ fontSize: "0.68rem", color: "var(--color-text-3)", marginTop: 1 }}>
-          {streak >= 7
-            ? "Incredible consistency! Keep it up 💪"
-            : streak >= 3
-            ? "You're on a roll — don't break the chain!"
-            : "Log again tomorrow to extend your streak"}
+          {streak >= 60
+            ? "You're a logging titan! 🗿"
+            : streak >= 45
+              ? "You're a logging legend! 🏆"
+              : streak >= 30
+                ? "You're a logging master! 🏅"
+                : streak >= 14
+                  ? "You're a logging progidy! 🎉"
+                  : streak >= 7
+                    ? "Incredible consistency, keep it up! 👏"
+                    : streak >= 3
+                      ? "You're on a roll — don't break the chain! 👍"
+                      : "Log more tomorrow to extend your streak!"}
         </div>
       </div>
     </div>

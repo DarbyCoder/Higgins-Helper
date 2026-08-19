@@ -2,15 +2,15 @@
  * @file src/components/layout/Header.tsx
  * @description Top app bar. Left side shows a context-aware greeting/title
  * that changes based on which page the user is on. Right side shows the
- * HigginsHelper "H" logo mark.
+ * Higgins Helper "H" logo mark.
  */
 import { useLocation } from "react-router-dom";
 import { useDateStore, useUserStore } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
 
 
-const DAY_NAMES   = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function formatDisplayDate(dateStr: string): string {
   const d = new Date(`${dateStr}T12:00:00`);
@@ -30,17 +30,17 @@ function getHeaderContent(
   selectedDate: string,
   userName?: string
 ): { subtitle: string; title: string } {
-  const today     = new Date().toISOString().slice(0, 10);
-  const isToday   = selectedDate === today;
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = selectedDate === today;
   const firstName = userName ? userName.split(" ")[0] : "";
-  const greeting  = firstName ? `${getTimeGreeting()}, ${firstName} 👋` : `${getTimeGreeting()} 👋`;
+  const greeting = firstName ? `${getTimeGreeting()}, ${firstName} 👋` : `${getTimeGreeting()} 👋`;
 
   switch (true) {
     // ── Dashboard ──
     case pathname === "/":
       return {
         subtitle: isToday ? greeting : formatDisplayDate(selectedDate),
-        title:    isToday ? "Today" : formatDisplayDate(selectedDate),
+        title: isToday ? "Today" : formatDisplayDate(selectedDate),
       };
 
     // ── Menu ──
@@ -81,16 +81,16 @@ function getHeaderContent(
     default:
       return {
         subtitle: greeting,
-        title: "HigginsHelper",
+        title: "Higgins Helper",
       };
   }
 }
 
 export default function Header() {
-  const location     = useLocation();
+  const location = useLocation();
   const selectedDate = useDateStore((s) => s.selectedDate);
-  const profileName  = useUserStore((s) => s.userProfile?.name);
-  const { user }     = useAuth();
+  const profileName = useUserStore((s) => s.userProfile?.name);
+  const { user } = useAuth();
 
   // Prefer the Firebase auth displayName (always current), fall back to stored profile name
   const userName = user?.displayName ?? profileName;
@@ -127,7 +127,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Clark U / HigginsHelper logo mark */}
+      {/* Clark U / Higgins Helper logo mark */}
       <img
         src="/logo.png"
         alt="Higgins Helper Logo"

@@ -48,7 +48,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`[server] HigginsHelper API running at http://localhost:${PORT}`);
+  console.log(`[server] Higgins Helper API running at http://localhost:${PORT}`);
   console.log(`[server] Try: http://localhost:${PORT}/api/menu?date=${new Date().toISOString().slice(0, 10)}`);
 });
 

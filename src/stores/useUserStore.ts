@@ -133,6 +133,10 @@ interface UserState {
    */
   macroTargetsManuallySet: boolean;
 
+  /** Up to 4 presets for manual macro targets */
+  overridePresets: MacroTargets[];
+  activeOverrideIndex: number;
+
   /**
    * Saves a user profile and recomputes macro targets (unless manually overridden).
    * Also persists to Firestore if the user is signed in.
@@ -142,9 +146,12 @@ interface UserState {
   /**
    * Manually sets macro targets.
    * Sets macroTargetsManuallySet = true, preventing future auto-recalculation.
-   * Also persists to Firestore if the user is signed in.
+   * Also updates the active override preset.
    */
   setMacroTargets: (targets: MacroTargets) => void;
+
+  /** Swaps the active override preset and applies it if manual mode is enabled. */
+  setActiveOverrideIndex: (index: number) => void;
 
   /**
    * Resets macro targets to auto-calculated values from the current profile.
@@ -169,6 +176,8 @@ function persistToFirestore(state: {
   userProfile: UserProfile | null;
   macroTargets: MacroTargets;
   macroTargetsManuallySet: boolean;
+  overridePresets: MacroTargets[];
+  activeOverrideIndex: number;
 }) {
   const uid = useAuthStore.getState().user?.uid;
   if (!uid || !state.userProfile) return;
@@ -176,6 +185,8 @@ function persistToFirestore(state: {
     profile:                state.userProfile,
     macroTargets:           state.macroTargets,
     macroTargetsManuallySet: state.macroTargetsManuallySet,
+    overridePresets:        state.overridePresets,
+    activeOverrideIndex:    state.activeOverrideIndex,
     theme:                  (document.documentElement.dataset.theme ?? "dark") as "dark" | "light",
   }).catch(console.error);
 }
@@ -188,6 +199,8 @@ export const useUserStore = create<UserState>()(
       userProfile:             null,
       macroTargets:            DEFAULT_MACRO_TARGETS,
       macroTargetsManuallySet: false,
+      overridePresets:         [DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS],
+      activeOverrideIndex:     0,
 
       setUserProfile: (profile) => {
         const shouldRecalculate = !get().macroTargetsManuallySet;
@@ -204,15 +217,46 @@ export const useUserStore = create<UserState>()(
           userProfile:             profile,
           macroTargets:            newMacroTargets,
           macroTargetsManuallySet: get().macroTargetsManuallySet,
+          overridePresets:         get().overridePresets,
+          activeOverrideIndex:     get().activeOverrideIndex,
         });
       },
 
       setMacroTargets: (targets) => {
-        set({ macroTargets: targets, macroTargetsManuallySet: true });
+        const presets = [...get().overridePresets];
+        presets[get().activeOverrideIndex] = targets;
+        
+        set({ 
+          macroTargets: targets, 
+          macroTargetsManuallySet: true,
+          overridePresets: presets,
+        });
+
         persistToFirestore({
           userProfile:             get().userProfile,
           macroTargets:            targets,
           macroTargetsManuallySet: true,
+          overridePresets:         presets,
+          activeOverrideIndex:     get().activeOverrideIndex,
+        });
+      },
+
+      setActiveOverrideIndex: (index) => {
+        const isManual = get().macroTargetsManuallySet;
+        const presets = get().overridePresets;
+        
+        set({ 
+          activeOverrideIndex: index,
+          // Only change active targets if we are currently in manual mode
+          macroTargets: isManual ? presets[index] : get().macroTargets 
+        });
+
+        persistToFirestore({
+          userProfile:             get().userProfile,
+          macroTargets:            isManual ? presets[index] : get().macroTargets,
+          macroTargetsManuallySet: isManual,
+          overridePresets:         presets,
+          activeOverrideIndex:     index,
         });
       },
 
@@ -225,6 +269,8 @@ export const useUserStore = create<UserState>()(
           userProfile:             profile,
           macroTargets:            newTargets,
           macroTargetsManuallySet: false,
+          overridePresets:         get().overridePresets,
+          activeOverrideIndex:     get().activeOverrideIndex,
         });
       },
 
@@ -236,6 +282,9 @@ export const useUserStore = create<UserState>()(
           userProfile:             data.profile,
           macroTargets:            data.macroTargets,
           macroTargetsManuallySet: data.macroTargetsManuallySet,
+          // Support older documents that may not have these arrays
+          overridePresets:         (data as any).overridePresets ?? [data.macroTargets, data.macroTargets, data.macroTargets, data.macroTargets],
+          activeOverrideIndex:     (data as any).activeOverrideIndex ?? 0,
         });
       },
     }),
@@ -247,6 +296,8 @@ export const useUserStore = create<UserState>()(
         userProfile:             state.userProfile,
         macroTargets:            state.macroTargets,
         macroTargetsManuallySet: state.macroTargetsManuallySet,
+        overridePresets:         state.overridePresets,
+        activeOverrideIndex:     state.activeOverrideIndex,
       }),
     }
   )

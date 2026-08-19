@@ -62,7 +62,7 @@ export default function LoginPage() {
   const WALKTHROUGH_SLIDES = [
     {
       emoji: "🥗",
-      title: "Welcome to HigginsHelper",
+      title: "Welcome to Higgins Helper",
       text: "The ultimate companion for eating smart at Clark University.",
     },
     {
@@ -159,10 +159,10 @@ export default function LoginPage() {
           <div style={{ textAlign: "center", marginBottom: "1.75rem" }}>
             <img
               src="/logo-square.jpg"
-              alt="HigginsHelper"
+              alt="Higgins Helper"
               style={{ width: 56, height: 56, borderRadius: "var(--radius-md)", marginBottom: "0.75rem" }}
             />
-            <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800 }}>HigginsHelper</h1>
+            <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800 }}>Higgins Helper</h1>
             <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "var(--color-text-3)" }}>
               Clark University · Nutrition Tracker
             </p>

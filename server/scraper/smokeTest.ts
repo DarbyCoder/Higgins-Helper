@@ -22,7 +22,7 @@ function toLocalDateString(date: Date = new Date()): string {
 async function main() {
   // Use today's date by default, or pass a date as the first CLI arg
   const date = process.argv[2] ?? toLocalDateString();
-  console.log(`\n🍽️  HigginsHelper Scraper Smoke Test`);
+  console.log(`\n🍽️  Higgins Helper Scraper Smoke Test`);
   console.log(`📅  Date: ${date}\n`);
 
   // ── Layer 1 ──

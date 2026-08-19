@@ -65,7 +65,7 @@ function buildSystemPrompt(ctx: ChatContext): string {
   const todayLogStr = formatLog(ctx.todayLog);
   const yesterdayLogStr = formatLog(ctx.yesterdayLog);
 
-  return `You are HigginsHelper's AI Nutritionist, a friendly, expert nutrition advisor for Clark University students.
+  return `You are Higgins Helper's AI Nutritionist, a friendly, expert nutrition advisor for Clark University students.
 You have access to the user's real-time food log and nutritional data.
 
 USER CONTEXT:

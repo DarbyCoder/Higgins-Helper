@@ -31,7 +31,7 @@ export default function AuthGate({ children }: AuthGateProps) {
       }}>
         <img
           src="/logo-square.jpg"
-          alt="HigginsHelper"
+          alt="Higgins Helper"
           style={{ width: 64, height: 64, borderRadius: "var(--radius-md)", opacity: 0.9 }}
         />
         <div style={{ fontSize: "0.82rem", color: "var(--color-text-3)" }}>Loading…</div>

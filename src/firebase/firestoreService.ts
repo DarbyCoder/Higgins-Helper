@@ -1,6 +1,6 @@
 /**
  * @file src/firebase/firestoreService.ts
- * @description Central Firestore CRUD service for HigginsHelper.
+ * @description Central Firestore CRUD service for Higgins Helper.
  * All reads/writes to Cloud Firestore go through these functions,
  * keeping Firebase API calls out of Zustand stores and React components.
  *
@@ -31,6 +31,8 @@ export interface FirestoreUserProfile {
   profile:                UserProfile;
   macroTargets:           MacroTargets;
   macroTargetsManuallySet: boolean;
+  overridePresets?:       MacroTargets[];
+  activeOverrideIndex?:   number;
   theme:                  "dark" | "light";
   updatedAt:              unknown; // Firestore ServerTimestamp
 }
