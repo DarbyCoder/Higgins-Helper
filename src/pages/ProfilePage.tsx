@@ -6,47 +6,52 @@
  */
 import { useState } from "react";
 import { useUserStore, calculateMacroTargets, useThemeStore } from "@/stores";
+import { useAuth } from "@/firebase/AuthProvider";
 import type { UserProfile, ActivityLevel, WeightGoal } from "@/types";
 
+
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
-  sedentary:   "Sedentary (desk job, no exercise)",
-  light:       "Light (1–3 days/week)",
-  moderate:    "Moderate (3–5 days/week)",
-  active:      "Active (6–7 days/week)",
-  very_active: "Very Active (physical job + exercise)",
+  sedentary: "Sedentary — desk job, classes, little movement",
+  light: "Lightly Active — light walks or 1–2 gym sessions/week",
+  moderate: "Moderately Active — 3–4 workouts/week, intramurals",
+  active: "Very Active — athlete or intense training 5–6 days/week",
+  very_active: "Extremely Active — physical job or 2-a-day training",
 };
 
 const GOAL_LABELS: Record<WeightGoal, string> = {
-  lose:     "Lose weight (−500 kcal/day)",
+  lose: "Lose weight (−500 kcal/day)",
   maintain: "Maintain weight",
-  gain:     "Gain muscle (+300 kcal/day)",
+  gain: "Gain muscle (+300 kcal/day)",
 };
 
 const DIETARY_OPTIONS = [
-  { icon: "vegan",               label: "Vegan" },
-  { icon: "vegetarian",          label: "Vegetarian" },
+  { icon: "vegan", label: "Vegan" },
+  { icon: "vegetarian", label: "Vegetarian" },
   { icon: "made_without_gluten", label: "Gluten-free" },
-  { icon: "halal",               label: "Halal" },
-  { icon: "kosher",              label: "Kosher" },
+  { icon: "halal", label: "Halal" },
+  { icon: "kosher", label: "Kosher" },
 ];
 
 export default function ProfilePage() {
-  const { userProfile, macroTargets, setUserProfile, setMacroTargets, resetMacroTargetsToAuto, macroTargetsManuallySet } = useUserStore();
+  const { userProfile, setUserProfile, macroTargets, setMacroTargets, resetMacroTargetsToAuto, macroTargetsManuallySet } = useUserStore();
   const { theme, toggleTheme } = useThemeStore();
+  const { user, signOut } = useAuth();
   const isDark = theme === "dark";
+
 
   // Form state seeded from existing profile
   const [form, setForm] = useState<Partial<UserProfile>>({
-    name:                 userProfile?.name ?? "",
-    weight:               userProfile?.weight ?? 155,
-    weightUnit:           userProfile?.weightUnit ?? "lbs",
-    height:               userProfile?.height ?? 68,
-    heightUnit:           userProfile?.heightUnit ?? "in",
-    age:                  userProfile?.age ?? 20,
-    sex:                  userProfile?.sex ?? "other",
-    activityLevel:        userProfile?.activityLevel ?? "light",
-    goal:                 userProfile?.goal ?? "maintain",
-    dietaryRestrictions:  userProfile?.dietaryRestrictions ?? [],
+    name: userProfile?.name ?? "",
+    weight: userProfile?.weight ?? 155,
+    weightUnit: userProfile?.weightUnit ?? "lbs",
+    height: userProfile?.height ?? 68,
+    heightUnit: userProfile?.heightUnit ?? "in",
+    age: userProfile?.age ?? 20,
+    sex: userProfile?.sex ?? "other",
+    activityLevel: userProfile?.activityLevel ?? "light",
+    goal: userProfile?.goal ?? "maintain",
+    dietaryRestrictions: userProfile?.dietaryRestrictions ?? [],
+    wantsAIAdvisor: userProfile?.wantsAIAdvisor ?? true,
   });
   const [saved, setSaved] = useState(false);
 
@@ -81,8 +86,6 @@ export default function ProfilePage() {
 
   return (
     <div className="page stagger">
-      <h1 style={{ margin: "0 0 1.25rem", fontSize: "1.2rem", fontWeight: 800 }}>Profile</h1>
-
       {/* Personal info */}
       <div className="glass" style={{ padding: "1rem", marginBottom: "1rem" }}>
         <div className="section-title">Personal Info</div>
@@ -182,11 +185,11 @@ export default function ProfilePage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
           {([
             { label: "Calories", val: previewTargets.calories, unit: "cal", color: "#c41e3a" },
-            { label: "Protein",  val: previewTargets.protein,  unit: "g",    color: "#10b981" },
-            { label: "Carbs",    val: previewTargets.totalCarbs,unit: "g",   color: "#3b82f6" },
-            { label: "Fat",      val: previewTargets.totalFat, unit: "g",    color: "#f59e0b" },
-            { label: "Fiber",    val: previewTargets.fiber,    unit: "g",    color: "#8b5cf6" },
-            { label: "Sodium",   val: previewTargets.sodium,   unit: "mg",   color: "#64748b" },
+            { label: "Protein", val: previewTargets.protein, unit: "g", color: "#10b981" },
+            { label: "Carbs", val: previewTargets.totalCarbs, unit: "g", color: "#3b82f6" },
+            { label: "Fat", val: previewTargets.totalFat, unit: "g", color: "#f59e0b" },
+            { label: "Fiber", val: previewTargets.fiber, unit: "g", color: "#8b5cf6" },
+            { label: "Sodium", val: previewTargets.sodium, unit: "mg", color: "#64748b" },
           ] as const).map(({ label, val, unit, color }) => (
             <div key={label} style={{ textAlign: "center", padding: "0.5rem 0.25rem", background: `${color}10`, borderRadius: "var(--radius-sm)" }}>
               <div style={{ fontSize: "1rem", fontWeight: 800, color }}>{val}</div>
@@ -198,6 +201,148 @@ export default function ProfilePage() {
         <p style={{ margin: "0.6rem 0 0", fontSize: "0.68rem", color: "var(--color-text-3)" }}>
           Calculated using Mifflin-St Jeor TDEE formula. Targets update automatically when you save.
         </p>
+      </div>
+
+      {/* ── Macro Goal Override ── */}
+      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
+        {/* Header row with toggle switch */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+          <div>
+            <div className="section-title" style={{ marginBottom: 0 }}>Goal Overrides</div>
+            <div style={{ fontSize: "0.68rem", color: "var(--color-text-3)", marginTop: 2 }}>
+              Override the auto-calculated macro targets
+            </div>
+          </div>
+          {/* Toggle switch */}
+          <button
+            role="switch"
+            aria-checked={macroTargetsManuallySet}
+            onClick={() => macroTargetsManuallySet ? resetMacroTargetsToAuto() : undefined}
+            style={{
+              width: 44, height: 24, borderRadius: 999, border: "none", padding: 0,
+              background: macroTargetsManuallySet
+                ? "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))"
+                : "var(--color-surface-3)",
+              position: "relative", cursor: "pointer",
+              transition: "background 0.2s",
+              flexShrink: 0,
+              boxShadow: macroTargetsManuallySet ? "0 0 10px rgba(196,30,58,0.35)" : "none",
+            }}
+            aria-label="Toggle goal overrides"
+          >
+            <span style={{
+              position: "absolute", top: 4,
+              left: macroTargetsManuallySet ? 23 : 4,
+              width: 16, height: 16, borderRadius: "50%", background: "#fff",
+              transition: "left 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+            }} />
+          </button>
+        </div>
+
+        {/* Inputs — shown and unlocked only when override is active */}
+        {macroTargetsManuallySet ? (
+          <>
+            <div style={{
+              padding: "0.45rem 0.7rem", borderRadius: "var(--radius-md)", margin: "0.65rem 0",
+              background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
+              fontSize: "0.7rem", color: "#f59e0b",
+            }}>
+              ⚠️ Auto-calculation is paused. Toggle off to restore.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
+              {([
+                { label: "Calories (cal)", key: "calories" as const, color: "#c41e3a" },
+                { label: "Protein (g)", key: "protein" as const, color: "#10b981" },
+                { label: "Carbs (g)", key: "totalCarbs" as const, color: "#3b82f6" },
+                { label: "Fat (g)", key: "totalFat" as const, color: "#f59e0b" },
+              ]).map(({ label, key, color }) => (
+                <div key={key}>
+                  <label style={{ fontSize: "0.68rem", fontWeight: 600, color: "var(--color-text-3)", display: "block", marginBottom: "0.3rem" }}>
+                    {label}
+                  </label>
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    value={macroTargets[key]}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (!isNaN(val) && val > 0) {
+                        setMacroTargets({ ...macroTargets, [key]: val });
+                      }
+                    }}
+                    style={{ borderColor: color + "55" }}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{
+            marginTop: "0.65rem", padding: "0.65rem 0.75rem",
+            borderRadius: "var(--radius-md)",
+            background: "var(--color-surface-3)",
+            fontSize: "0.72rem", color: "var(--color-text-3)",
+            textAlign: "center",
+          }}>
+            Toggle on to manually set your calorie and macro goals
+          </div>
+        )}
+
+        {/* Activation button when switch is off */}
+        {!macroTargetsManuallySet && (
+          <button
+            className="btn-ghost"
+            onClick={() => setMacroTargets({ ...macroTargets })}
+            style={{ width: "100%", justifyContent: "center", marginTop: "0.65rem", fontSize: "0.8rem" }}
+          >
+            Enable overrides
+          </button>
+        )}
+      </div>
+
+      {/* ── Push Notifications ── */}
+      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
+        <div className="section-title">Notifications</div>
+        <div style={{
+          padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", marginBottom: "0.75rem",
+          background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
+          fontSize: "0.75rem", color: "#f59e0b", lineHeight: 1.5,
+        }}>
+          ⚠️ <strong>Beta feature.</strong> Push notifications require installing HigginsHelper as a PWA. Tap the share button in your browser and choose "Add to Home Screen" first.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
+              Meal Reminders
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
+              Reminders to log breakfast, lunch, & dinner
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              if (!("Notification" in window)) {
+                alert("Your browser doesn't support notifications.");
+                return;
+              }
+              const perm = await Notification.requestPermission();
+              if (perm === "granted") {
+                new Notification("HigginsHelper 🥗", {
+                  body: "Notifications enabled! We'll remind you to log your meals.",
+                  icon: "/logo-square.jpg",
+                });
+              } else {
+                alert("Notification permission denied. Check your browser settings.");
+              }
+            }}
+            className="btn-ghost"
+            style={{ fontSize: "0.75rem" }}
+          >
+            Enable
+          </button>
+        </div>
       </div>
 
       {/* ── Appearance ── */}
@@ -243,17 +388,86 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* ── App Features ── */}
+      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
+        <div className="section-title">App Features</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
+              AI Nutritionist
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
+              Personalized food advice using Gemini
+            </div>
+          </div>
+          {/* Toggle switch */}
+          <button
+            role="switch"
+            aria-checked={form.wantsAIAdvisor}
+            onClick={() => setForm((f) => ({ ...f, wantsAIAdvisor: !f.wantsAIAdvisor }))}
+            style={{
+              width: 48, height: 26, borderRadius: 999, border: "none",
+              background: form.wantsAIAdvisor ? "var(--color-primary)" : "var(--color-surface-3)",
+              position: "relative", cursor: "pointer",
+              transition: "background 0.25s", padding: 0,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              flexShrink: 0,
+            }}
+            aria-label="Toggle AI Advisor"
+          >
+            <span style={{
+              position: "absolute",
+              top: 3, left: form.wantsAIAdvisor ? 25 : 3,
+              width: 20, height: 20, borderRadius: "50%",
+              background: form.wantsAIAdvisor ? "#fff" : "var(--color-text-3)",
+              transition: "left 0.22s cubic-bezier(0.34,1.56,0.64,1), background 0.22s",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+            }} />
+          </button>
+        </div>
+      </div>
+
       {/* Save */}
       <button className="btn-primary" onClick={handleSave} style={{ width: "100%", justifyContent: "center", padding: "0.9rem" }}>
         {saved ? "✓ Saved!" : "Save Profile"}
       </button>
 
+      {/* Account */}
+      <div className="glass" style={{ padding: "1rem", marginTop: "1rem" }}>
+        <div className="section-title">Account</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-1)" }}>
+              {user?.displayName ?? "Signed in"}
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
+              {user?.email}
+            </div>
+          </div>
+          <button
+            onClick={signOut}
+            style={{
+              padding: "0.4rem 0.9rem",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid rgba(229,57,53,0.35)",
+              background: "rgba(229,57,53,0.08)",
+              color: "#ef5350",
+              fontWeight: 600, fontSize: "0.78rem",
+              cursor: "pointer",
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+
       <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", marginTop: "1rem" }}>
-        HigginsHelper v0.1.0 · Clark University · Data stored locally
+        HigginsHelper v0.2.0 · Clark University · Data synced to cloud
       </p>
     </div>
   );
 }
+
 
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (

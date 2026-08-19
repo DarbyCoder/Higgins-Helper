@@ -6,8 +6,8 @@
  */
 import { useEffect, useState, type CSSProperties } from "react";
 import { useDateStore, useMenuStore } from "@/stores";
-import type { MenuItem } from "@/types";
-import DatePicker from "@/components/menu/DatePicker";
+import type { MenuItem, DiningLocation } from "@/types";
+
 import MenuSearch from "@/components/menu/MenuSearch";
 import LocationCard from "@/components/menu/LocationCard";
 import NutritionModal from "@/components/menu/NutritionModal";
@@ -29,14 +29,29 @@ export default function MenuPage() {
     if (mealName) setSelectedMeal(mealName);
   }
 
-  const openLocations = menuData?.locations.filter((l) => l.isOpen) ?? [];
-  const closedLocations = menuData?.locations.filter((l) => !l.isOpen) ?? [];
+  function isLocationOpenNow(l: DiningLocation) {
+    if (!l.isOpen) return false;
+    if (l.meals.length === 0) return false;
+    
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+
+    return l.meals.some(m => {
+      if (!m.startTime || !m.endTime) return false;
+      const [sh, sm] = m.startTime.split(":").map(Number);
+      const [eh, em] = m.endTime.split(":").map(Number);
+      if (isNaN(sh) || isNaN(eh)) return false;
+      return nowMins >= (sh * 60 + sm) && nowMins < (eh * 60 + em);
+    });
+  }
+
+  const openLocations = menuData?.locations.filter(isLocationOpenNow) ?? [];
+  const closedLocations = menuData?.locations.filter((l) => !isLocationOpenNow(l)) ?? [];
 
   return (
     <div className="page">
       {/* Header controls */}
-      <div style={{ marginBottom: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-        <DatePicker />
+      <div style={{ marginBottom: "1rem" }}>
         <MenuSearch />
       </div>
 
@@ -96,10 +111,7 @@ export default function MenuPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <div className="section-title">Closed ({closedLocations.length})</div>
           {closedLocations.map((loc) => (
-            <div key={loc.slug} className="glass-2" style={{ padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-text-2)" }}>{loc.name}</span>
-              <span style={{ fontSize: "0.65rem", color: "#f87171", fontWeight: 600 }}>Closed</span>
-            </div>
+            <LocationCard key={loc.slug} location={loc} onSelectItem={handleSelectItem} />
           ))}
         </div>
       )}

@@ -88,18 +88,18 @@ YESTERDAY'S FOOD ITEMS LOGGED:
 ${yesterdayLogStr}
 
 INSTRUCTIONS:
-1. Be concise, warm, and encouraging — students are busy.
+1. Be concise, clear, and encouraging — students are busy.
 2. Reference their actual numbers when giving advice (e.g., "you still need Xg of protein").
 3. Recommend specific foods or meal strategies from Clark University's Higgins dining hall when relevant.
-4. Keep responses under 200 words unless a detailed explanation is truly needed.
+4. Keep responses under 120 words unless a detailed explanation is truly needed.
 5. Never diagnose medical conditions. For medical concerns, always refer to a healthcare professional.
-6. If their macros look good, say so! Positive reinforcement matters.`;
+6. Avoid using * or _ for emphasis; use plain text.`;
 }
 
 // ─── Gemini API Client ───────────────────────────────────────────────────────
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_MODEL    = "gemini-3.5-flash-lite";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 interface GeminiContent {
   role: "user" | "model";

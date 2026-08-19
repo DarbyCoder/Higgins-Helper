@@ -91,7 +91,6 @@ export default function CalorieRing({ consumed, target, size = 180, thickness = 
 
   }, [consumed, target, size, thickness, pct, clampedPct]);
 
-  const remaining = Math.max(0, target - consumed);
   const isOver = consumed > target;
 
   return (

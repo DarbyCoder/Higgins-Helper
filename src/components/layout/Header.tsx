@@ -6,6 +6,8 @@
  */
 import { useLocation } from "react-router-dom";
 import { useDateStore, useUserStore } from "@/stores";
+import { useAuth } from "@/firebase/AuthProvider";
+
 
 const DAY_NAMES   = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -87,9 +89,14 @@ function getHeaderContent(
 export default function Header() {
   const location     = useLocation();
   const selectedDate = useDateStore((s) => s.selectedDate);
-  const userName     = useUserStore((s) => s.userProfile?.name);
+  const profileName  = useUserStore((s) => s.userProfile?.name);
+  const { user }     = useAuth();
+
+  // Prefer the Firebase auth displayName (always current), fall back to stored profile name
+  const userName = user?.displayName ?? profileName;
 
   const { subtitle, title } = getHeaderContent(location.pathname, selectedDate, userName);
+
 
   return (
     <header style={{
@@ -121,16 +128,16 @@ export default function Header() {
       </div>
 
       {/* Clark U / HigginsHelper logo mark */}
-      <div style={{
-        width: 38, height: 38,
-        borderRadius: "var(--radius-md)",
-        background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontWeight: 800, fontSize: "0.9rem", color: "#fff",
-        boxShadow: "0 4px 12px rgba(196,30,58,0.4)",
-        userSelect: "none",
-        flexShrink: 0,
-      }}>H</div>
+      <img
+        src="/logo.png"
+        alt="Higgins Helper Logo"
+        style={{
+          height: 48, // slightly larger to accommodate the circular seal
+          width: "auto",
+          objectFit: "contain",
+          flexShrink: 0,
+        }}
+      />
     </header>
   );
 }

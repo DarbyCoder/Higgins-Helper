@@ -1,15 +1,15 @@
 /**
  * @file src/pages/DashboardPage.tsx
  * @description The main "Today" dashboard page. Shows the calorie ring,
- * macro breakdown, meal summary grid, date simulation toggle, and a
- * quick-action to the menu.
+ * macro breakdown, meal summary grid, streak, water tracker,
+ * weekly chart, dining hours, and a quick-action to the menu.
  */
 import { useNavigate } from "react-router-dom";
 import { useDateStore, useFoodLogStore, useUserStore } from "@/stores";
 import DailyOverview from "@/components/dashboard/DailyOverview";
 import MealBreakdown from "@/components/dashboard/MealBreakdown";
+import StreakCounter from "@/components/dashboard/StreakCounter";
 import DatePicker from "@/components/menu/DatePicker";
-import DateSimulation from "@/components/dashboard/DateSimulation";
 
 const MOTIVATIONAL_QUOTES = [
   "Every healthy choice is a step toward your goals.",
@@ -27,7 +27,7 @@ function getDailyQuote(): string {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { selectedDate } = useDateStore();
-  const { getDailyTotals, getDailyEntries } = useFoodLogStore();
+  const { getDailyTotals, getDailyEntries, foodLog } = useFoodLogStore();
   const { macroTargets } = useUserStore();
 
   const totals  = getDailyTotals(selectedDate);
@@ -41,9 +41,9 @@ export default function DashboardPage() {
         <DatePicker />
       </div>
 
-      {/* ── Date Simulation Toggle ── */}
-      <div style={{ marginBottom: "1rem" }}>
-        <DateSimulation />
+      {/* ── Streak counter (only shown when active) ── */}
+      <div style={{ marginBottom: "0.75rem" }}>
+        <StreakCounter foodLog={foodLog} />
       </div>
 
       {/* ── Main calorie card ── */}

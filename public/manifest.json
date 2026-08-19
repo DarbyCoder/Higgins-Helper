@@ -8,6 +8,6 @@
   "theme_color": "#c41e3a",
   "orientation": "portrait",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+    { "src": "/logo-square.jpg", "sizes": "512x512", "type": "image/jpeg" }
   ]
 }

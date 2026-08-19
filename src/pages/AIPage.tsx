@@ -7,14 +7,14 @@ import { useEffect, useRef, useState } from "react";
 import { useDateStore, useFoodLogStore, useUserStore, useAIStore } from "@/stores";
 
 export default function AIPage() {
-  const { selectedDate }     = useDateStore();
+  const { selectedDate } = useDateStore();
   const { getDailyTotals, getDailyEntries } = useFoodLogStore();
   const { macroTargets, userProfile } = useUserStore();
   const { chatHistory, isLoading, sendMessage, clearChat } = useAIStore();
 
-  const [input, setInput]    = useState("");
-  const bottomRef            = useRef<HTMLDivElement>(null);
-  const totals               = getDailyTotals(selectedDate);
+  const [input, setInput] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const totals = getDailyTotals(selectedDate);
 
   const getYesterdayString = (dateStr: string) => {
     const [y, m, d] = dateStr.split("-").map(Number);
@@ -24,7 +24,7 @@ export default function AIPage() {
     return `${date.getFullYear()}-${mm}-${dd}`;
   };
 
-  const formatEntries = (entries: any[]) => 
+  const formatEntries = (entries: any[]) =>
     entries.map(e => ({ name: e.menuItemName, calories: e.calories, mealSlot: e.mealSlot }));
 
   useEffect(() => {
@@ -32,11 +32,9 @@ export default function AIPage() {
   }, [chatHistory]);
 
   const QUICK_PROMPTS = [
-    "What should I eat for dinner tonight?",
+    "What should I eat next?",
     "Am I getting enough protein today?",
-    "Can you suggest a high-protein snack?",
     "How do my macros look today?",
-    "What's a good post-workout meal from the dining hall?",
   ];
 
   async function handleSend(message: string = input.trim()) {
@@ -59,14 +57,8 @@ export default function AIPage() {
       flex: 1, minHeight: 0,
       maxWidth: 480, margin: "0 auto", padding: "0 1rem", width: "100%"
     }}>
-      {/* Header */}
-      <div style={{ padding: "1rem 0 0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800 }}>AI Advisor</h1>
-          <p style={{ margin: "0.1rem 0 0", fontSize: "0.72rem", color: "var(--color-text-3)" }}>
-            Powered by Gemini · Knows your food log
-          </p>
-        </div>
+      {/* Header (Top actions) */}
+      <div style={{ padding: "0.5rem 0", display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
         {chatHistory.length > 0 && (
           <button className="btn-ghost" onClick={clearChat} style={{ fontSize: "0.72rem" }}>
             New chat
@@ -74,28 +66,20 @@ export default function AIPage() {
         )}
       </div>
 
-      {/* Context bar */}
-      <div style={{
-        padding: "0.5rem 0.75rem",
-        background: "var(--color-primary-ghost)",
-        border: "1px solid var(--color-primary-dim)",
-        borderRadius: "var(--radius-md)",
-        marginBottom: "0.75rem",
-        fontSize: "0.72rem",
-        color: "var(--color-text-2)",
-        flexShrink: 0,
-      }}>
-        📊 Today: <strong style={{ color: "var(--color-text-1)" }}>{totals.calories.toLocaleString()} cal</strong> eaten
-        · <strong>{totals.protein.toFixed(0)}g</strong> protein
-        · Goal: <strong>{macroTargets.calories.toLocaleString()} cal</strong>
-      </div>
+
 
       {/* Messages area */}
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.6rem", paddingBottom: "0.5rem" }}>
         {chatHistory.length === 0 ? (
           /* Welcome state */
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "1.5rem", gap: "0.5rem" }}>
-            <div style={{ fontSize: "3rem" }}>🤖</div>
+            <div style={{
+              width: 56, height: 56, borderRadius: "var(--radius-md)",
+              background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.5rem", fontWeight: 800, color: "#fff",
+              marginBottom: "0.5rem", boxShadow: "0 4px 12px rgba(196, 30, 58, 0.3)"
+            }}>AI</div>
             <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, textAlign: "center" }}>
               Hi{userProfile?.name ? `, ${userProfile.name}` : ""}! I'm your AI nutritionist.
             </h2>
@@ -170,7 +154,7 @@ export default function AIPage() {
               borderRadius: "var(--radius-lg) var(--radius-lg) var(--radius-lg) 0",
             }}>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                {[0,1,2].map((i) => (
+                {[0, 1, 2].map((i) => (
                   <div key={i} style={{
                     width: 6, height: 6, borderRadius: "50%",
                     background: "var(--color-text-3)",
@@ -196,7 +180,7 @@ export default function AIPage() {
           className="input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }}}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
           placeholder="Ask about your nutrition..."
           disabled={isLoading}
           rows={Math.min(4, input.split("\n").length || 1)}
@@ -209,7 +193,7 @@ export default function AIPage() {
           style={{ flexShrink: 0, padding: "0.65rem 1rem", opacity: (!input.trim() || isLoading) ? 0.5 : 1 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+            <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22,2 15,22 11,13 2,9" />
           </svg>
         </button>
       </div>

@@ -25,7 +25,19 @@ const MACRO_BARS: Array<{
   { key: "fiber",     targetKey: "fiber",      label: "Fiber",     unit: "g",  color: "#8b5cf6" },
 ];
 
+import { useWaterStore, useDateStore, useUserStore } from "@/stores";
+
 export default function DailyOverview({ totals, targets }: Props) {
+  const { selectedDate } = useDateStore();
+  const { getCups } = useWaterStore();
+  const { userProfile } = useUserStore();
+
+  const weightLbs = userProfile 
+    ? (userProfile.weightUnit === "kg" ? userProfile.weight * 2.20462 : userProfile.weight)
+    : 128;
+  const dailyGoalCups = Math.max(4, Math.round(weightLbs / 16));
+  const cups = getCups(selectedDate);
+
   return (
     <div className="glass" style={{ padding: "1.25rem" }}>
       {/* ── Top: Ring + quick stats ── */}
@@ -33,11 +45,10 @@ export default function DailyOverview({ totals, targets }: Props) {
         <CalorieRing consumed={totals.calories} target={targets.calories} size={150} thickness={18} />
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
           <QuickStat label="Goal" value={targets.calories.toLocaleString()} unit="cal" color="var(--color-text-3)" />
-          <QuickStat label="Burned" value="—" unit="cal" color="var(--color-text-3)" />
           <div style={{ height: 1, background: "var(--color-border)" }} />
           <QuickStat
-            label="Net"
-            value={(targets.calories - totals.calories).toLocaleString()}
+            label="Remaining"
+            value={(Math.max(0, targets.calories - totals.calories)).toLocaleString()}
             unit="cal"
             color={totals.calories > targets.calories ? "#ef4444" : "#10b981"}
           />
@@ -58,22 +69,38 @@ export default function DailyOverview({ totals, targets }: Props) {
         ))}
       </div>
 
-      {/* ── Sodium note ── */}
-      <div style={{
-        marginTop: "0.85rem",
-        padding: "0.5rem 0.75rem",
-        borderRadius: "var(--radius-sm)",
-        background: "rgba(255,255,255,0.03)",
-        display: "flex", justifyContent: "space-between",
-        fontSize: "0.75rem",
-      }}>
-        <span style={{ color: "var(--color-text-3)" }}>Sodium</span>
-        <span style={{
-          fontWeight: 600,
-          color: totals.sodium > targets.sodium ? "#ef4444" : "var(--color-text-2)"
+      {/* ── Sodium & Water notes ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "0.85rem" }}>
+        <div style={{
+          padding: "0.5rem 0.75rem",
+          borderRadius: "var(--radius-sm)",
+          background: "rgba(255,255,255,0.03)",
+          display: "flex", justifyContent: "space-between",
+          fontSize: "0.75rem",
         }}>
-          {Math.round(totals.sodium).toLocaleString()} / {targets.sodium.toLocaleString()} mg
-        </span>
+          <span style={{ color: "var(--color-text-3)" }}>Sodium</span>
+          <span style={{
+            fontWeight: 600,
+            color: totals.sodium > targets.sodium ? "#ef4444" : "var(--color-text-2)"
+          }}>
+            {Math.round(totals.sodium).toLocaleString()} / {targets.sodium.toLocaleString()} mg
+          </span>
+        </div>
+        <div style={{
+          padding: "0.5rem 0.75rem",
+          borderRadius: "var(--radius-sm)",
+          background: "rgba(255,255,255,0.03)",
+          display: "flex", justifyContent: "space-between",
+          fontSize: "0.75rem",
+        }}>
+          <span style={{ color: "var(--color-text-3)" }}>Water</span>
+          <span style={{
+            fontWeight: 600,
+            color: "var(--color-text-2)"
+          }}>
+            {Math.round(cups * 10000) / 10000} / {dailyGoalCups} cups
+          </span>
+        </div>
       </div>
     </div>
   );

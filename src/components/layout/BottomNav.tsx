@@ -4,6 +4,7 @@
  * Highlights the active route and uses SVG icons for each tab.
  */
 import { NavLink, useLocation } from "react-router-dom";
+import { useUserStore } from "@/stores/useUserStore";
 
 const NAV_ITEMS = [
   {
@@ -51,6 +52,11 @@ const NAV_ITEMS = [
 
 export default function BottomNav() {
   const location = useLocation();
+  const wantsAI = useUserStore((s) => s.userProfile?.wantsAIAdvisor ?? true);
+
+  const visibleItems = NAV_ITEMS.filter(item => 
+    item.path !== "/ai" || wantsAI
+  );
 
   return (
     <nav style={{
@@ -66,7 +72,7 @@ export default function BottomNav() {
         maxWidth: 480, margin: "0 auto",
         height: "4rem",
       }}>
-        {NAV_ITEMS.map(({ path, label, icon }) => {
+        {visibleItems.map(({ path, label, icon }) => {
           const isActive = path === "/"
             ? location.pathname === "/"
             : location.pathname.startsWith(path);

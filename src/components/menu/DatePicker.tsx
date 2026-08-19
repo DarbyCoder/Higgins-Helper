@@ -20,25 +20,27 @@ export default function DatePicker() {
   const days = Array.from({ length: 7 }, (_, i) => offsetDate(selectedDate, i - 3));
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}>
       {/* Prev */}
-      <button className="btn-icon" onClick={goToPrevDay} aria-label="Previous day">
+      <button className="btn-icon" onClick={goToPrevDay} aria-label="Previous day" style={{ flexShrink: 0 }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
           <polyline points="15,18 9,12 15,6" />
         </svg>
       </button>
 
-      {/* Day strip */}
-      <div style={{ flex: 1, display: "flex", gap: "0.35rem", overflowX: "auto", scrollbarWidth: "none" }}>
+      {/* Day strip — equal-width flex children, no overflow */}
+      <div style={{ flex: 1, display: "flex", gap: "0.2rem" }}>
         {days.map((d) => {
           const isSelected = d === selectedDate;
           const isToday = d === today;
           const { dow, num } = formatDayLabel(d);
           return (
             <button key={d} onClick={() => setSelectedDate(d)} style={{
-              flex: "0 0 auto", width: 38, display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center", gap: 3,
-              padding: "0.45rem 0",
+              flex: "1 1 0",
+              minWidth: 0,
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 2,
+              padding: "0.4rem 0",
               borderRadius: "var(--radius-md)",
               border: isSelected ? "1px solid var(--color-primary)" : "1px solid transparent",
               background: isSelected
@@ -59,7 +61,7 @@ export default function DatePicker() {
       </div>
 
       {/* Next */}
-      <button className="btn-icon" onClick={goToNextDay} aria-label="Next day">
+      <button className="btn-icon" onClick={goToNextDay} aria-label="Next day" style={{ flexShrink: 0 }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
           <polyline points="9,18 15,12 9,6" />
         </svg>

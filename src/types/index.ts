@@ -148,6 +148,7 @@ export interface UserProfile {
   activityLevel: ActivityLevel;
   goal: WeightGoal;
   dietaryRestrictions: string[]; // e.g. ["vegan", "made_without_gluten"]
+  wantsAIAdvisor?: boolean;
 }
 
 /**

@@ -21,7 +21,7 @@ export default function MealBreakdown({ entries }: Props) {
     <div>
       <div className="section-title">Meal Breakdown</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem" }}>
-        {MEALS.map(({ key, label, emoji, timeHint }) => {
+        {MEALS.map(({ key, label, emoji, timeHint: _timeHint }) => {
           const mealEntries = entries.filter((e) => e.mealSlot === key);
           const cals = mealEntries.reduce((a, e) => a + e.calories, 0);
           return (
