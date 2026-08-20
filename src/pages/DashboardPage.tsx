@@ -37,31 +37,31 @@ export default function DashboardPage() {
   return (
     <div className="page stagger">
       {/* ── Date navigation strip ── */}
-      <div style={{ marginBottom: "0.6rem" }}>
+      <div className="mb-2">
         <DatePicker />
       </div>
 
       {/* ── Streak counter (only shown when active) ── */}
-      <div style={{ marginBottom: "0.75rem" }}>
+      <div className="mb-3">
         <StreakCounter foodLog={foodLog} />
       </div>
 
       {/* ── Main calorie card ── */}
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="mb-4">
         <DailyOverview totals={totals} targets={macroTargets} />
       </div>
 
       {/* ── Meal breakdown grid ── */}
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="mb-4">
         <MealBreakdown entries={entries} />
       </div>
 
       {/* ── Status message card ── */}
-      <div className="glass-2" style={{ padding: "0.85rem 1rem", marginBottom: "1rem" }}>
-        <div style={{ fontSize: "0.7rem", color: "var(--color-text-3)", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "0.35rem" }}>
+      <div className="glass-2 px-4 py-3 mb-4">
+        <div className="text-[0.7rem] text-[var(--color-text-3)] font-semibold tracking-[0.08em] uppercase mb-1">
           💡 Today's Tip
         </div>
-        <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-text-2)", lineHeight: 1.5 }}>
+        <p className="m-0 text-[0.82rem] text-[var(--color-text-2)] leading-relaxed">
           {pct === 0
             ? "Start logging your first meal to see your progress here."
             : pct < 0.5
@@ -77,9 +77,8 @@ export default function DashboardPage() {
       {/* ── CTA to menu (when log is empty) ── */}
       {entries.length === 0 && (
         <button
-          className="btn-primary"
+          className="btn-primary w-full justify-center text-[0.9rem] p-3.5"
           onClick={() => navigate("/menu")}
-          style={{ width: "100%", justifyContent: "center", fontSize: "0.9rem", padding: "0.9rem" }}
         >
           Browse Today's Menu →
         </button>
@@ -88,25 +87,19 @@ export default function DashboardPage() {
       {/* ── Recent entries preview ── */}
       {entries.length > 0 && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-            <div className="section-title" style={{ marginBottom: 0 }}>Recent Entries</div>
-            <button onClick={() => navigate("/log")} style={{ background: "none", border: "none", fontSize: "0.72rem", color: "var(--color-primary-light)", cursor: "pointer", fontWeight: 600 }}>
+          <div className="flex justify-between items-center mb-2">
+            <div className="section-title mb-0">Recent Entries</div>
+            <button onClick={() => navigate("/log")} className="bg-transparent border-none text-[0.72rem] text-[var(--color-primary-light)] cursor-pointer font-semibold">
               View all →
             </button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+          <div className="flex flex-col gap-1.5">
             {entries.slice(-3).reverse().map((entry) => (
-              <div key={entry.id} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "0.55rem 0.75rem",
-                background: "var(--color-surface-2)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--color-border)",
-              }}>
-                <span style={{ fontSize: "0.8rem", color: "var(--color-text-1)", flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div key={entry.id} className="flex justify-between items-center py-2 px-3 bg-[var(--color-surface-2)] rounded-[var(--radius-md)] border border-[var(--color-border)]">
+                <span className="text-[0.8rem] text-[var(--color-text-1)] flex-1 min-w-0 truncate">
                   {entry.menuItemName}
                 </span>
-                <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--color-primary-light)", flexShrink: 0, marginLeft: "0.5rem" }}>
+                <span className="text-[0.8rem] font-bold text-[var(--color-primary-light)] shrink-0 ml-2">
                   {entry.calories} cal
                 </span>
               </div>

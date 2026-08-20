@@ -14,6 +14,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
 import type { DailyMenuResponse, DiningLocation } from "../types/index.js";
 import { scrapeMenuHours } from "../scraper/menuHoursScraper.js";
 import { scrapeLocationMenu } from "../scraper/locationMenuScraper.js";
@@ -21,18 +22,33 @@ import { menuCache } from "../cache/menuCache.js";
 
 export const menuRouter = Router();
 
-// ─── Date Validation ─────────────────────────────────────────────────────────
+// ─── Date Validation (#4) ─────────────────────────────────────────────────────
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Validates that a string matches YYYY-MM-DD and represents a real calendar date.
+ * Parses then re-serializes to catch impossible dates like 2026-02-30 that the
+ * Date constructor silently rolls over to the next month.
  */
 function isValidDate(dateStr: string): boolean {
   if (!DATE_REGEX.test(dateStr)) return false;
-  const d = new Date(dateStr);
-  return !isNaN(d.getTime());
+  const d = new Date(`${dateStr}T00:00:00`); // Force local midnight interpretation
+  if (isNaN(d.getTime())) return false;
+  // Re-serialize and compare: rolled-over dates (e.g. Feb 30) won't match
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return (
+    d.getFullYear() === year &&
+    d.getMonth() + 1 === month &&
+    d.getDate() === day
+  );
 }
+
+// ─── Cache Stampede Prevention (#9) ──────────────────────────────────────────
+// Store in-flight Promises per date so concurrent cache-miss requests share
+// the same scrape instead of each spawning their own.
+
+const inflightScrapes = new Map<string, Promise<DailyMenuResponse>>();
 
 // ─── Core Scraping Orchestrator ───────────────────────────────────────────────
 
@@ -110,6 +126,32 @@ async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
   return response;
 }
 
+/**
+ * Returns a shared in-flight Promise for the given date, or starts a new scrape.
+ * Prevents the thundering herd: if 50 requests arrive at a cache miss simultaneously,
+ * they all share one scrape instead of spawning 50 parallel scrapers.
+ */
+function getScrapePromise(date: string): Promise<DailyMenuResponse> {
+  const existing = inflightScrapes.get(date);
+  if (existing) return existing;
+
+  const promise = fetchAndCacheMenuData(date).finally(() => {
+    inflightScrapes.delete(date);
+  });
+  inflightScrapes.set(date, promise);
+  return promise;
+}
+
+// ─── Rate limiter for /refresh (#19) ─────────────────────────────────────────
+// The refresh endpoint triggers expensive parallel scrapes. Limit to 5/minute.
+const refreshRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Refresh rate limit exceeded. Please wait before refreshing again." },
+});
+
 // ─── GET /api/menu ────────────────────────────────────────────────────────────
 
 menuRouter.get(
@@ -138,9 +180,9 @@ menuRouter.get(
         return;
       }
 
-      // ── Cache miss: run scraping pipeline ──
+      // ── Cache miss: run scraping pipeline (shared in-flight Promise) ──
       res.setHeader("X-Cache", "MISS");
-      const data = await fetchAndCacheMenuData(date);
+      const data = await getScrapePromise(date);
       res.json(data);
     } catch (err) {
       next(err); // Delegate to Express error handler
@@ -152,6 +194,7 @@ menuRouter.get(
 
 menuRouter.get(
   "/refresh",
+  refreshRateLimiter,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const dateParam = req.query.date as string | undefined;
     const date = dateParam ?? new Date().toISOString().slice(0, 10);
@@ -163,10 +206,13 @@ menuRouter.get(
 
     try {
       menuCache.invalidate(date);
-      const data = await fetchAndCacheMenuData(date);
+      inflightScrapes.delete(date); // Also clear any in-flight scrape
+      const data = await getScrapePromise(date);
       res.json({ message: `Cache refreshed for ${date}`, data });
     } catch (err) {
       next(err);
     }
   }
 );
+
+

@@ -2,10 +2,9 @@
  * @file src/components/menu/NutritionModal.tsx
  * @description Full-screen bottom sheet displaying the FDA-style Nutrition Facts
  * label for a selected menu item, plus a quick-add food log button.
- * The nutrition label itself is rendered as an SVG using D3 for crisp output.
+ * The nutrition label is rendered as declarative React SVG (no D3 dependency).
  */
-import { useEffect, useRef, useState } from "react";
-import * as d3 from "d3";
+import { useEffect, useState } from "react";
 import type { MenuItem, MealSlot } from "@/types";
 import { useFoodLogStore, useDateStore } from "@/stores";
 
@@ -28,103 +27,97 @@ const ICON_LABELS: Record<string, string> = {
   tree_nuts:           "Contains Tree Nuts",
 };
 
-// ── D3 FDA Nutrition Facts Label ──────────────────────────────────────────────
+// ── React SVG FDA Nutrition Facts Label (#7 #8) ───────────────────────────────
+// Replaces the D3 implementation. Renders the same label declaratively as JSX,
+// eliminating the ~50KB D3 bundle and the useEffect DOM-mutation anti-pattern.
 function NutritionFactsLabel({ item }: { item: MenuItem }) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  const W = 280;
+  const fontFamily = "Arial, Helvetica, sans-serif";
+  const rows: React.ReactElement[] = [];
+  let y = 0;
 
-  useEffect(() => {
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+  function hRule(yy: number, thick: number, color = "#000") {
+    rows.push(
+      <rect key={`hr-${yy}`} x={0} y={yy} width={W} height={thick} fill={color} />
+    );
+    return yy + thick;
+  }
 
-    const W = 280;
-    let y = 0;
-    const bg = svg.append("g");
+  // White background
+  rows.push(<rect key="bg" width={W} height={800} fill="#fff" />);
 
-    function hRule(yy: number, thick: number, color = "#000") {
-      bg.append("rect").attr("x", 0).attr("y", yy).attr("width", W).attr("height", thick).attr("fill", color);
-      return yy + thick;
-    }
-    function text(content: string, x: number, yy: number, opts: { size?: number; bold?: boolean; anchor?: string; fill?: string } = {}) {
-      bg.append("text")
-        .attr("x", x).attr("y", yy)
-        .attr("font-family", "Arial, Helvetica, sans-serif")
-        .attr("font-size", opts.size ?? 10)
-        .attr("font-weight", opts.bold ? "bold" : "normal")
-        .attr("text-anchor", opts.anchor ?? "start")
-        .attr("fill", opts.fill ?? "#000")
-        .text(content);
-    }
+  y = hRule(0, 8);
+  y += 2;
+  rows.push(<text key="title" x={4} y={y + 26} fontFamily={fontFamily} fontSize={28} fontWeight="bold">Nutrition Facts</text>);
+  y += 30;
+  y = hRule(y, 1);
+  y += 2;
+  rows.push(<text key="serving" x={4} y={y + 11} fontFamily={fontFamily} fontSize={11}>Serving size {item.servingSize}</text>);
+  y += 14;
+  y = hRule(y, 8);
 
-    // White background
-    bg.append("rect").attr("width", W).attr("height", 400).attr("fill", "#fff");
+  // Calories
+  y += 4;
+  rows.push(<text key="cal-lbl" x={4} y={y + 20} fontFamily={fontFamily} fontSize={16} fontWeight="bold">Calories</text>);
+  rows.push(<text key="cal-val" x={W - 4} y={y + 24} fontFamily={fontFamily} fontSize={32} fontWeight="bold" textAnchor="end">{item.calories}</text>);
+  y += 30;
+  y = hRule(y, 4);
 
-    y = hRule(0, 8);
-    y += 2;
-    text("Nutrition Facts", 4, y + 26, { size: 28, bold: true });
-    y += 30;
-    y = hRule(y, 1);
-    y += 2;
-    text(`Serving size ${item.servingSize}`, 4, y + 11, { size: 11 });
-    y += 14;
-    y = hRule(y, 8);
+  // % DV header
+  y += 3;
+  rows.push(<text key="dv-hdr" x={W - 4} y={y + 9} fontFamily={fontFamily} fontSize={8} fontWeight="bold" textAnchor="end">% Daily Value*</text>);
+  y += 12;
+  y = hRule(y, 0.5);
 
-    // Calories
-    y += 4;
-    text("Calories", 4, y + 20, { size: 16, bold: true });
-    text(String(item.calories), W - 4, y + 24, { size: 32, bold: true, anchor: "end" });
-    y += 30;
-    y = hRule(y, 4);
+  // Facts rows
+  item.facts.forEach((fact, idx) => {
+    if (fact.label === "Calories") return;
+    const indent = fact.isSecondary ? 16 : 4;
+    const bold = !fact.isSecondary;
 
-    // % DV header
     y += 3;
-    text("% Daily Value*", W - 4, y + 9, { size: 8, bold: true, anchor: "end" });
-    y += 12;
-    y = hRule(y, 0.5);
-
-    // Facts rows
-    item.facts.forEach((fact) => {
-      if (fact.label === "Calories") return; // Already shown above
-      const indent = fact.isSecondary ? 16 : 4;
-      const bold   = !fact.isSecondary;
-
-      y += 3;
-      text(`${fact.label} ${fact.value}${fact.unit}`, indent, y + 9, { size: bold ? 9 : 8, bold });
-      if (fact.percentDrv !== null) {
-        text(`${fact.percentDrv}%`, W - 4, y + 9, { size: 8, bold, anchor: "end" });
-      }
-      y += 12;
-      y = hRule(y, fact.isSecondary ? 0.3 : 0.5, fact.isSecondary ? "#ccc" : "#888");
-    });
-
-    // Footnote
-    y += 4;
-    const footnote = "* The % Daily Value tells you how much a nutrient in a serving of food contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.";
-    const words = footnote.split(" ");
-    let line = "";
-    let fY = y;
-    words.forEach((word) => {
-      const test = line ? `${line} ${word}` : word;
-      if (test.length > 45) {
-        bg.append("text").attr("x", 4).attr("y", fY + 8).attr("font-size", 6).attr("font-family", "Arial").text(line);
-        fY += 9;
-        line = word;
-      } else { line = test; }
-    });
-    if (line) {
-      bg.append("text").attr("x", 4).attr("y", fY + 8).attr("font-size", 6).attr("font-family", "Arial").text(line);
-      fY += 9;
+    rows.push(
+      <text key={`fact-${idx}`} x={indent} y={y + 9} fontFamily={fontFamily} fontSize={bold ? 9 : 8} fontWeight={bold ? "bold" : "normal"}>
+        {fact.label} {fact.value}{fact.unit}
+      </text>
+    );
+    if (fact.percentDrv !== null) {
+      rows.push(
+        <text key={`pct-${idx}`} x={W - 4} y={y + 9} fontFamily={fontFamily} fontSize={8} fontWeight={bold ? "bold" : "normal"} textAnchor="end">
+          {fact.percentDrv}%
+        </text>
+      );
     }
-    fY += 2;
-    hRule(fY, 4);
-    fY += 4;
+    y += 12;
+    rows.push(<rect key={`rule-${idx}`} x={0} y={y} width={W} height={fact.isSecondary ? 0.3 : 0.5} fill={fact.isSecondary ? "#ccc" : "#888"} />);
+  });
 
-    // Set final SVG height
-    svg.attr("viewBox", `0 0 ${W} ${fY + 4}`).attr("height", fY + 4);
-  }, [item]);
+  // Footnote — word-wrap manually
+  y += 4;
+  const footnote = "* The % Daily Value tells you how much a nutrient in a serving of food contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.";
+  const words = footnote.split(" ");
+  let line = "";
+  let fY = y;
+  const noteLines: string[] = [];
+  words.forEach((word) => {
+    const test = line ? `${line} ${word}` : word;
+    if (test.length > 45) { noteLines.push(line); line = word; }
+    else { line = test; }
+  });
+  if (line) noteLines.push(line);
+  noteLines.forEach((nl, i) => {
+    rows.push(<text key={`note-${i}`} x={4} y={fY + 8} fontFamily={fontFamily} fontSize={6}>{nl}</text>);
+    fY += 9;
+  });
+  fY += 2;
+  rows.push(<rect key="end-rule" x={0} y={fY} width={W} height={4} fill="#000" />);
+  fY += 4;
 
   return (
     <div style={{ background: "#fff", borderRadius: "var(--radius-md)", overflow: "hidden", padding: "0.5rem" }}>
-      <svg ref={svgRef} width="100%" style={{ display: "block" }} />
+      <svg width="100%" viewBox={`0 0 ${W} ${fY + 4}`} style={{ display: "block" }}>
+        {rows}
+      </svg>
     </div>
   );
 }
@@ -146,10 +139,10 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
   const { addFoodEntry }  = useFoodLogStore();
 
   // Reset state when item changes
-  useEffect(() => { 
-    setServings(1); 
-    setJustAdded(false); 
-    
+  useEffect(() => {
+    setServings(1);
+    setJustAdded(false);
+
     if (sourceMealName) {
       const name = sourceMealName.toLowerCase();
       if (name.includes("breakfast")) setMealSlot("breakfast");
@@ -168,24 +161,41 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
     setTimeout(() => setJustAdded(false), 2000);
   }
 
+  const modalId = "nutrition-modal-title";
+
   return (
-    /* Backdrop */
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 200,
-      background: "rgba(0,0,0,0.6)",
-      backdropFilter: "blur(4px)",
-      display: "flex", alignItems: "flex-end",
-    }}>
-      {/* Sheet */}
-      <div onClick={(e) => e.stopPropagation()} className="animate-slide-up" style={{
-        width: "100%", maxWidth: 480, margin: "0 auto",
-        background: "var(--color-surface)",
-        borderRadius: "var(--radius-xl) var(--radius-xl) 0 0",
-        border: "1px solid var(--color-border)",
-        borderBottom: "none",
-        maxHeight: "90dvh",
-        display: "flex", flexDirection: "column",
-      }}>
+    /* Backdrop (#11) — keyboard-accessible so pressing Enter/Space or clicking closes the modal */
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="Close nutrition panel"
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose(); } }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "flex-end",
+      }}
+    >
+      {/* Sheet — clicking inside stops propagation so it doesn't close the modal */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={modalId}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        className="animate-slide-up"
+        style={{
+          width: "100%", maxWidth: 480, margin: "0 auto",
+          background: "var(--color-surface)",
+          borderRadius: "var(--radius-xl) var(--radius-xl) 0 0",
+          border: "1px solid var(--color-border)",
+          borderBottom: "none",
+          maxHeight: "90dvh",
+          display: "flex", flexDirection: "column",
+        }}
+      >
         {/* Handle */}
         <div style={{ display: "flex", justifyContent: "center", paddingTop: "0.75rem" }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--color-surface-3)" }} />
@@ -195,7 +205,7 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
         <div style={{ overflowY: "auto", padding: "0 1rem 1rem", flex: 1 }}>
           {/* Item header */}
           <div style={{ marginBottom: "0.75rem" }}>
-            <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--color-text-1)" }}>{item.name}</h2>
+            <h2 id={modalId} style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--color-text-1)" }}>{item.name}</h2>
             <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", color: "var(--color-text-2)" }}>{locationName}</p>
             {item.description && (
               <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", color: "var(--color-text-3)", fontStyle: "italic" }}>{item.description}</p>
@@ -235,7 +245,7 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
             ))}
           </div>
 
-          {/* D3 Nutrition Facts label */}
+          {/* React SVG Nutrition Facts label */}
           <NutritionFactsLabel item={item} />
 
           {/* Allergens */}

@@ -90,19 +90,31 @@ function pruneOldEntries(
   return pruned;
 }
 
+// ─── Stable empty array constant (#6) ────────────────────────────────────────
+// Using `?? []` in getters creates a new array reference on every call,
+// breaking React memoization for components that depend on these arrays.
+const EMPTY_ENTRIES: LoggedFoodEntry[] = Object.freeze([]) as unknown as LoggedFoodEntry[];
+
 // ─── Firestore debounce write ─────────────────────────────────────────────────
 
-const writeTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+/**
+ * Returns a per-store-instance debounce write function.
+ * Defined as a factory so `writeTimers` lives inside the store closure (#26),
+ * preventing timer state from leaking between user sessions on sign-out/sign-in.
+ */
+function createScheduleFirestoreWrite() {
+  // writeTimers is now scoped to this factory invocation, not the module (#26)
+  const writeTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
-/** Debounces Firestore writes per-date to batch rapid serving adjustments. */
-function scheduleFirestoreWrite(date: string, log: DailyFoodLog) {
-  const uid = useAuthStore.getState().user?.uid;
-  if (!uid) return;
+  return function scheduleFirestoreWrite(date: string, log: DailyFoodLog) {
+    const uid = useAuthStore.getState().user?.uid;
+    if (!uid) return;
 
-  clearTimeout(writeTimers[date]);
-  writeTimers[date] = setTimeout(() => {
-    setDailyFoodLog(uid, date, log).catch(console.error);
-  }, 400); // 400ms debounce
+    clearTimeout(writeTimers[date]);
+    writeTimers[date] = setTimeout(() => {
+      setDailyFoodLog(uid, date, log).catch(console.error);
+    }, 400); // 400ms debounce
+  };
 }
 
 // ─── Store Shape ──────────────────────────────────────────────────────────────
@@ -144,7 +156,12 @@ interface FoodLogState {
 
 export const useFoodLogStore = create<FoodLogState>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      // Create the debounce writer inside the store closure so writeTimers
+      // is scoped here and not leaked across sign-out/sign-in cycles (#26)
+      const scheduleFirestoreWrite = createScheduleFirestoreWrite();
+
+      return {
       foodLog: {},
 
       // ── Add Entry ──────────────────────────────────────────────────────────
@@ -219,11 +236,13 @@ export const useFoodLogStore = create<FoodLogState>()(
         });
       },
 
-      // ── Getters ────────────────────────────────────────────────────────────
-      getDailyTotals:    (date)            => get().foodLog[date]?.totals ?? emptyTotals(),
-      getDailyEntries:   (date)            => get().foodLog[date]?.entries ?? [],
-      getEntriesForMeal: (date, mealSlot)  =>
-        get().foodLog[date]?.entries.filter((e) => e.mealSlot === mealSlot) ?? [],
+      // ── Getters (#6) ───────────────────────────────────────────────────────
+      // Use EMPTY_ENTRIES constant so that a missing date returns a stable
+      // reference instead of a new [] on every call (preserves memoization).
+      getDailyTotals:    (date)           => get().foodLog[date]?.totals ?? emptyTotals(),
+      getDailyEntries:   (date)           => get().foodLog[date]?.entries ?? EMPTY_ENTRIES,
+      getEntriesForMeal: (date, mealSlot) =>
+        get().foodLog[date]?.entries.filter((e) => e.mealSlot === mealSlot) ?? EMPTY_ENTRIES,
 
       // ── Clear Day ──────────────────────────────────────────────────────────
       clearDayLog: (date) => {
@@ -244,7 +263,7 @@ export const useFoodLogStore = create<FoodLogState>()(
           foodLog: { ...state.foodLog, ...logs },
         }));
       },
-    }),
+    };},
 
     {
       name:    "higgins-food-log",

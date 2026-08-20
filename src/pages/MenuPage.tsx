@@ -18,9 +18,9 @@ export default function MenuPage() {
   const { selectedDate } = useDateStore();
   const { menuData, isLoading, error, fetchMenu } = useMenuStore();
 
-  const [selectedItem, setSelectedItem]     = useState<MenuItem | null>(null);
-  const [selectedLocation, setSelectedLoc]  = useState("");
-  const [selectedMeal, setSelectedMeal]     = useState("");
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedLocation, setSelectedLoc] = useState("");
+  const [selectedMeal, setSelectedMeal] = useState("");
 
   // Fetch menu whenever the selected date changes
   useEffect(() => { fetchMenu(selectedDate); }, [selectedDate, fetchMenu]);
@@ -34,7 +34,7 @@ export default function MenuPage() {
   function isLocationOpenNow(l: DiningLocation) {
     if (!l.isOpen) return false;
     if (l.meals.length === 0) return false;
-    
+
     const now = new Date();
     const nowMins = now.getHours() * 60 + now.getMinutes();
 
@@ -122,7 +122,7 @@ export default function MenuPage() {
         <button
           className="btn-primary"
           onClick={() => navigate("/log")}
-          style={{ width: "100%", justifyContent: "center", fontSize: "0.9rem", padding: "0.9rem", marginTop: "1.5rem" }}
+          style={{ width: "100%", justifyContent: "center", fontSize: "0.9rem", padding: "0.9rem", marginTop: "1.5rem", marginBottom: "3rem" }}
         >
           Check Food Log →
         </button>
@@ -151,7 +151,13 @@ export default function MenuPage() {
  */
 function MenuLoadingSkeleton() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+    <div
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      aria-label="Loading menu..."
+      style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+    >
       {[0, 1, 2].map((i) => (
         <SkeletonCard key={i} delay={i * 0.12} />
       ))}

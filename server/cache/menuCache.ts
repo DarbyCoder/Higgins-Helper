@@ -86,6 +86,21 @@ class MenuCache {
   get size(): number {
     return this.store.size;
   }
+
+  /**
+   * Evicts all expired entries from the cache.
+   * Called on a periodic interval so entries that are never re-read
+   * don't accumulate indefinitely in memory (#10).
+   */
+  sweep(): void {
+    const now = Date.now();
+    for (const [date, entry] of this.store) {
+      if (now - entry.cachedAt > entry.ttlMs) {
+        this.store.delete(date);
+        console.log(`[menuCache] Sweep evicted expired entry for date: ${date}`);
+      }
+    }
+  }
 }
 
 /**
@@ -93,3 +108,9 @@ class MenuCache {
  * instance's lifetime.
  */
 export const menuCache = new MenuCache();
+
+// ─── Periodic Sweep (#10) ─────────────────────────────────────────────────────
+// Evict expired entries every 30 minutes so dates that are fetched once and
+// never requested again don't remain in the Map indefinitely.
+setInterval(() => menuCache.sweep(), 30 * 60 * 1000).unref();
+

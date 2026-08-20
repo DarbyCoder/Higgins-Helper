@@ -54,6 +54,9 @@ export default function ProfilePage() {
     wantsAIAdvisor: userProfile?.wantsAIAdvisor ?? true,
   });
   const [saved, setSaved] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
+  });
 
   function field<K extends keyof UserProfile>(key: K) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -349,20 +352,29 @@ export default function ProfilePage() {
                 alert("Your browser doesn't support notifications.");
                 return;
               }
+              if (Notification.permission === "granted") {
+                alert("Notifications are already enabled!");
+                return;
+              }
               const perm = await Notification.requestPermission();
               if (perm === "granted") {
                 new Notification("Higgins Helper 🥗", {
                   body: "Notifications enabled! We'll remind you to log your meals.",
                   icon: "/logo-square.jpg",
                 });
+                setNotificationsEnabled(true);
               } else {
                 alert("Notification permission denied. Check your browser settings.");
               }
             }}
             className="btn-ghost"
-            style={{ fontSize: "0.75rem" }}
+            style={{ 
+              fontSize: "0.75rem",
+              color: notificationsEnabled ? "#10b981" : undefined
+            }}
+            disabled={notificationsEnabled}
           >
-            Enable
+            {notificationsEnabled ? "Enabled ✓" : "Enable"}
           </button>
         </div>
       </div>

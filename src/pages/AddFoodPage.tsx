@@ -8,20 +8,13 @@
  *  • Manual Entry — a form where you type in any nutritional values you know.
  *
  * Both modes flow into the same confirm step (meal slot + servings → add to log).
+ *
+ * BarcodeDetector type stubs live in src/types/barcode-detector.d.ts (#18).
  */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useFoodLogStore, useDateStore } from "@/stores";
+import { useFoodLogStore, useDateStore, useUIStore } from "@/stores";
 import type { MealSlot } from "@/types";
-
-// ─── Type stubs for BarcodeDetector (experimental API) ──────────────────────
-interface DetectedBarcode { rawValue: string; format: string; }
-interface BarcodeDetectorInstance {
-  detect(image: HTMLVideoElement | ImageBitmap): Promise<DetectedBarcode[]>;
-}
-declare const BarcodeDetector: {
-  new(opts: { formats: string[] }): BarcodeDetectorInstance;
-};
 
 // ─── Open Food Facts API ──────────────────────────────────────────────────────
 interface OFFNutriments {
@@ -57,27 +50,37 @@ function off(n: OFFNutriments, key: string): number {
   return serv ?? per100 ?? 0;
 }
 
-async function lookupBarcode(barcode: string): Promise<FoodDraft | null> {
+/**
+ * Looks up a barcode on Open Food Facts.
+ * Returns a FoodDraft on success, or throws with a user-readable message on failure (#2).
+ */
+async function lookupBarcode(barcode: string): Promise<FoodDraft> {
+  let data: OFFResponse;
   try {
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,nutriments,serving_size`,
       { headers: { "User-Agent": "Higgins Helper/1.0 (nicke@clarku.edu)" } }
     );
-    const data: OFFResponse = await res.json();
-    if (data.status !== 1 || !data.product) return null;
-    const p = data.product;
-    const n = p.nutriments;
-    return {
-      name: p.product_name || `Product ${barcode}`,
-      servingSize: p.serving_size ?? "1 serving",
-      calories:   Math.round(off(n, "energy-kcal")),
-      protein:    Math.round(off(n, "proteins") * 10) / 10,
-      totalCarbs: Math.round(off(n, "carbohydrates") * 10) / 10,
-      totalFat:   Math.round(off(n, "fat") * 10) / 10,
-      fiber:      Math.round(off(n, "fiber") * 10) / 10,
-      sodium:     Math.round(off(n, "sodium") * 1000), // OFF gives sodium in g
-    };
-  } catch { return null; }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json() as OFFResponse;
+  } catch (err) {
+    throw new Error(`Couldn't connect to product database. Please enter nutritional info manually.`);
+  }
+  if (data.status !== 1 || !data.product) {
+    throw new Error(`Product not found in database. Please enter nutritional info manually.`);
+  }
+  const p = data.product;
+  const n = p.nutriments;
+  return {
+    name: p.product_name || `Product ${barcode}`,
+    servingSize: p.serving_size ?? "1 serving",
+    calories:   Math.round(off(n, "energy-kcal")),
+    protein:    Math.round(off(n, "proteins") * 10) / 10,
+    totalCarbs: Math.round(off(n, "carbohydrates") * 10) / 10,
+    totalFat:   Math.round(off(n, "fat") * 10) / 10,
+    fiber:      Math.round(off(n, "fiber") * 10) / 10,
+    sodium:     Math.round(off(n, "sodium") * 1000), // OFF gives sodium in g
+  };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,8 +129,9 @@ export default function AddFoodPage() {
   }
 
   function handleAdd() {
-    // Build a synthetic MenuItem-like entry for addFoodEntry
-    const syntheticItem = {
+    // Build a synthetic MenuItem-like entry for addFoodEntry (#17)
+    // We satisfy the required base fields so we don't need 'as any'
+    const syntheticItem: import("@/types").MenuItem = {
       id: crypto.randomUUID(),
       name: draft.name,
       servingSize: draft.servingSize,
@@ -137,11 +141,11 @@ export default function AddFoodPage() {
       totalFat: draft.totalFat,
       fiber: draft.fiber,
       sodium: draft.sodium,
-      saturatedFat: 0, transFat: 0, polyFat: 0, monoFat: 0,
-      cholesterol: 0, sugar: 0, addedSugar: 0,
       attributes: [], allergensList: "",
       description: "", facts: [],
-    } as any;
+      ingredientsList: "",
+      disclaimer: ""
+    };
     addFoodEntry(selectedDate, mealSlot, syntheticItem, "Custom Entry", servings);
     setAdded(true);
     setTimeout(() => navigate("/log"), 1400);
@@ -199,7 +203,7 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
         cursor: "pointer", textAlign: "left",
         transition: "all 0.18s",
       }}>
-        <div style={{
+        <div aria-hidden="true" style={{
           width: 48, height: 48, borderRadius: "var(--radius-md)", flexShrink: 0,
           background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -218,7 +222,6 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth={2} strokeLinecap="round"><polyline points="9,18 15,12 9,6" /></svg>
       </button>
 
-      {/* Manual option */}
       <button onClick={onManual} style={{
         display: "flex", alignItems: "center", gap: "1rem",
         padding: "1.1rem 1.1rem",
@@ -228,9 +231,9 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
         cursor: "pointer", textAlign: "left",
         transition: "all 0.18s",
       }}>
-        <div style={{
+        <div aria-hidden="true" style={{
           width: 48, height: 48, borderRadius: "var(--radius-md)", flexShrink: 0,
-          background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+          background: "linear-gradient(135deg, var(--color-carbs), var(--color-fiber))",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: "1.5rem",
         }}>✏️</div>
@@ -304,12 +307,16 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
               setStatus("found");
               setLooking(true);
               stopStream();
-              const food = await lookupBarcode(raw);
-              setLooking(false);
-              if (food) {
+              
+              try {
+                const food = await lookupBarcode(raw);
+                setLooking(false);
                 onFound(food);
-              } else {
-                // Product not in database — fall back with barcode as name
+              } catch (err) {
+                setLooking(false);
+                if (err instanceof Error) {
+                  useUIStore.getState().showToast(err.message, "error");
+                }
                 onFound({ ...EMPTY_DRAFT, name: `Product ${raw}`, servingSize: "1 serving" });
               }
               return;
@@ -341,9 +348,16 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
       const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
       const codes = await detector.detect(bitmap);
       if (codes[0]) {
-        const food = await lookupBarcode(codes[0].rawValue);
-        setLooking(false);
-        if (food) { onFound(food); return; }
+        try {
+          const food = await lookupBarcode(codes[0].rawValue);
+          setLooking(false);
+          onFound(food);
+          return;
+        } catch (err) {
+          if (err instanceof Error) {
+            useUIStore.getState().showToast(err.message, "error");
+          }
+        }
       }
     } catch { /* fall through */ }
     setLooking(false);
@@ -354,7 +368,7 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
   if (!hasBarcodeDetector) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center", paddingTop: "1rem" }}>
-        <div style={{ fontSize: "3rem" }}>📸</div>
+        <div aria-hidden="true" style={{ fontSize: "3rem" }}>📸</div>
         <p style={{ textAlign: "center", color: "var(--color-text-2)", fontSize: "0.85rem" }}>
           Your browser doesn't support live scanning.<br />
           Upload a photo of the barcode instead.
@@ -410,11 +424,11 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
         {(status === "found" || lookingUp) && (
           <div style={{
             position: "absolute", inset: 0,
-            background: "rgba(0,0,0,0.7)",
+            background: "rgba(16,185,129,0.9)",
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: "0.5rem",
           }}>
-            <div style={{ fontSize: "2rem" }}>✅</div>
+            <div aria-hidden="true" style={{ fontSize: "2rem" }}>✅</div>
             <p style={{ color: "#fff", fontWeight: 600, margin: 0 }}>
               {lookingUp ? "Looking up nutrition…" : "Barcode found!"}
             </p>
@@ -428,7 +442,7 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
             alignItems: "center", justifyContent: "center",
             gap: "0.5rem", padding: "1rem", textAlign: "center",
           }}>
-            <div style={{ fontSize: "2rem" }}>⚠️</div>
+            <div aria-hidden="true" style={{ fontSize: "2rem" }}>⚠️</div>
             <p style={{ color: "#f87171", margin: 0, fontSize: "0.85rem" }}>{errMsg}</p>
           </div>
         )}
@@ -612,3 +626,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+

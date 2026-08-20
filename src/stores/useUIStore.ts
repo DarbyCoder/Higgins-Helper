@@ -7,11 +7,20 @@
  *   - Active meal period tab
  *   - Menu search/filter query
  *   - Dietary filter toggles
+ *   - Toast notifications (for surfacing async errors to the user)
  *
  * NOT persisted — all UI state resets on page load.
  */
 
 import { create } from "zustand";
+
+// ─── Toast type ───────────────────────────────────────────────────────────────
+
+export interface Toast {
+  id: string;
+  message: string;
+  type: "error" | "info" | "success";
+}
 
 // ─── Store Shape ──────────────────────────────────────────────────────────────
 
@@ -30,6 +39,9 @@ interface UIState {
    * Items must match ALL active filters to be shown.
    */
   activeDietaryFilters: string[];
+
+  /** Currently displayed toast notifications. */
+  toasts: Toast[];
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -51,6 +63,12 @@ interface UIState {
 
   /** Resets all UI state to defaults. */
   resetUI: () => void;
+
+  /** Shows a temporary toast notification. Auto-dismisses after 5 seconds. */
+  showToast: (message: string, type?: Toast["type"]) => void;
+
+  /** Dismisses a toast by its ID. */
+  dismissToast: (id: string) => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -60,6 +78,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   activeMealPeriod: null,
   searchQuery: "",
   activeDietaryFilters: [],
+  toasts: [],
 
   setActiveLocation: (slug) => set({ activeLocationSlug: slug }),
   setActiveMealPeriod: (meal) => set({ activeMealPeriod: meal }),
@@ -96,4 +115,18 @@ export const useUIStore = create<UIState>((set, get) => ({
       searchQuery: "",
       activeDietaryFilters: [],
     }),
+
+  showToast: (message, type = "info") => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    set((state) => ({ toasts: [...state.toasts, { id, message, type }] }));
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+    }, 5000);
+  },
+
+  dismissToast: (id) => {
+    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+  },
 }));
+

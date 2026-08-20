@@ -5,9 +5,9 @@
  * - Swipe-left to auto-delete (no confirmation button needed)
  * - Haptic feedback on actions (where supported)
  */
-import { useRef, useState } from "react";
 import type { LoggedFoodEntry } from "@/types";
 import { useFoodLogStore, useDateStore } from "@/stores";
+import { useSwipeToDelete } from "@/hooks/useSwipeToDelete";
 
 interface Props { entry: LoggedFoodEntry; }
 
@@ -30,51 +30,9 @@ export default function LogEntryRow({ entry }: Props) {
   const color = MEAL_COLORS[entry.mealSlot] ?? "var(--color-text-2)";
 
   // ── Swipe state ───────────────────────────────────────────────────────────
-  const [swipeX, setSwipeX]       = useState(0);
-  const [deleting, setDeleting]   = useState(false);
-  const touchStartX               = useRef<number | null>(null);
-  const isDragging                = useRef(false);
-  const ACTION_THRESHOLD          = 80; // px swipe needed to trigger action
-
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0]?.clientX ?? null;
-    isDragging.current  = false;
-  }
-
-  function onTouchMove(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const dx = (e.touches[0]?.clientX ?? 0) - touchStartX.current;
-    if (Math.abs(dx) > 4) isDragging.current = true;
-    
-    // dx < 0 is swipe left (delete). Only allow swipe left.
-    if (dx < 0) {
-      setSwipeX(Math.max(dx, -ACTION_THRESHOLD - 30));
-    } else {
-      setSwipeX(0); // Prevent swipe right
-    }
-  }
-
-  function onTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    
-    // Calculate exact final offset upon release to avoid stale state
-    const finalX = e.changedTouches[0]?.clientX ?? touchStartX.current;
-    const finalDx = finalX - touchStartX.current;
-    
-    touchStartX.current = null;
-    
-    if (finalDx < -ACTION_THRESHOLD) {
-      // Trigger delete
-      haptic(60);
-      setDeleting(true);
-      setSwipeX(-999);
-      setTimeout(() => removeFoodEntry(selectedDate, entry.id), 280);
-    } else {
-      // Snap back
-      setSwipeX(0);
-    }
-    isDragging.current = false;
-  }
+  const { swipeX, deleting, handlers, triggerDelete } = useSwipeToDelete(() => {
+    removeFoodEntry(selectedDate, entry.id);
+  });
 
   function handleServChange(delta: number) {
     haptic(30);
@@ -115,9 +73,7 @@ export default function LogEntryRow({ entry }: Props) {
 
       {/* Main row */}
       <div
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        {...handlers}
         style={{
           display: "flex", alignItems: "center", gap: "0.75rem",
           padding: "0.65rem 0.75rem",
@@ -126,7 +82,7 @@ export default function LogEntryRow({ entry }: Props) {
           borderRadius: "var(--radius-md)",
           position: "relative",
           transform: `translateX(${swipeX}px)`,
-          transition: isDragging.current ? "none" : "transform 0.25s cubic-bezier(0.2,0.8,0.2,1)",
+          transition: swipeX !== 0 && swipeX > -80 ? "none" : "transform 0.25s cubic-bezier(0.2,0.8,0.2,1)",
           willChange: "transform",
           touchAction: "pan-y",
         }}
@@ -148,8 +104,21 @@ export default function LogEntryRow({ entry }: Props) {
 
         {/* Servings controls */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-          <button onClick={() => handleServChange(-0.5)} style={{ background: "none", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", width: 22, height: 22, color: "var(--color-text-2)", cursor: "pointer", fontSize: "0.9rem", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-          <button onClick={() => handleServChange(0.5)} style={{ background: "none", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", width: 22, height: 22, color: "var(--color-text-2)", cursor: "pointer", fontSize: "0.9rem", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+          {entry.servings <= 0.5 ? (
+            <button 
+              onClick={triggerDelete} 
+              style={{ background: "none", border: "1px solid var(--color-danger)", borderRadius: "var(--radius-sm)", width: 22, height: 22, color: "var(--color-danger)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              aria-label="Delete entry"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                <polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/>
+                <path d="M10,11v6M14,11v6"/><path d="M9,6V4a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1v2"/>
+              </svg>
+            </button>
+          ) : (
+            <button onClick={() => handleServChange(-0.5)} style={{ background: "none", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", width: 22, height: 22, color: "var(--color-text-2)", cursor: "pointer", fontSize: "0.9rem", display: "flex", alignItems: "center", justifyContent: "center" }} aria-label="Decrease serving">−</button>
+          )}
+          <button onClick={() => handleServChange(0.5)} style={{ background: "none", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", width: 22, height: 22, color: "var(--color-text-2)", cursor: "pointer", fontSize: "0.9rem", display: "flex", alignItems: "center", justifyContent: "center" }} aria-label="Increase serving">+</button>
         </div>
 
         {/* Calories */}

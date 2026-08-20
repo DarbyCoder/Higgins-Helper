@@ -151,10 +151,20 @@ function parseMealPeriods(
     stub.meals.map((m) => [m.name.toLowerCase().replace(/\s*\(.*?\)/, "").trim(), m])
   );
 
+  // #27: Scraper fragility guard. If the dining site layout changes such that
+  // the number of tabs doesn't match the number of nav labels, our index-based
+  // zipping will silently assign food to the wrong meals. Catch it loudly here.
+  if (mealNames.length !== tabEls.length) {
+    console.warn(
+      `[locationMenuScraper] Layout mismatch for ${stub.name}: Found ${mealNames.length} meal nav labels but ${tabEls.length} content tabs. ` +
+      `Meals may be mapped incorrectly.`
+    );
+  }
+
   const mealPeriods: MealPeriod[] = [];
 
   tabEls.forEach((tabEl, i) => {
-    // Zip by index: if there are more tabs than nav labels (or vice versa), skip
+    // Zip by index
     const mealName = mealNames[i] ?? `Meal ${i + 1}`;
     const normalizedName = mealName.toLowerCase().replace(/\s*\(.*?\)/, "").trim();
     const hours = hoursLookup.get(normalizedName);
@@ -183,6 +193,42 @@ function parseMealPeriods(
   return mealPeriods;
 }
 
+// ─── Retry Helper (#28) ───────────────────────────────────────────────────────
+
+/**
+ * Retries an async operation up to maxAttempts times with exponential backoff.
+ * Handles transient network errors and HTTP 5xx responses from the dining site.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxAttempts = 3,
+  baseDelayMs = 500
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const isRetryable =
+        err instanceof Error &&
+        (err.message.includes("network") ||
+          err.message.includes("ECONNRESET") ||
+          err.message.includes("ETIMEDOUT") ||
+          /HTTP (5\d\d)/.test(err.message));
+
+      if (!isRetryable || attempt === maxAttempts) break;
+      const delay = baseDelayMs * Math.pow(2, attempt - 1);
+      console.warn(
+        `[locationMenuScraper] ${label} — attempt ${attempt} failed, retrying in ${delay}ms…`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function scrapeLocationMenu(
@@ -195,7 +241,10 @@ export async function scrapeLocationMenu(
   let html: string;
 
   try {
-    const response = await httpClient.get<string>(stub.url);
+    const response = await withRetry(
+      () => httpClient.get<string>(stub.url),
+      `${stub.name} (${stub.url})`
+    );
     html = response.data;
   } catch (err) {
     const axiosErr = err as AxiosError;
