@@ -368,7 +368,7 @@ export default function ProfilePage() {
               }
             }}
             className="btn-ghost"
-            style={{ 
+            style={{
               fontSize: "0.75rem",
               color: notificationsEnabled ? "#10b981" : undefined
             }}
@@ -496,7 +496,7 @@ export default function ProfilePage() {
       </div>
 
       <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", marginTop: "1rem" }}>
-        Higgins Helper v0.2.1 · Clark University · Data synced to cloud
+        Higgins Helper v0.2.2 · Clark University · Data synced to cloud
       </p>
     </div>
   );
