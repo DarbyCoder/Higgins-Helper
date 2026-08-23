@@ -11,6 +11,8 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import { menuRouter } from "./routes/menu.js";
 import { aiRouter } from "./routes/ai.js";
 
@@ -78,6 +80,21 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     message: isDev ? err.message : "Something went wrong",
   });
 });
+
+// ─── Serve Frontend in Production ─────────────────────────────────────────────
+// If we are not in development, serve the built Vite app (from /dist)
+if (process.env.NODE_ENV !== "development") {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  // In production, server runs from dist/server/index.js, client is in dist/
+  const distPath = path.resolve(__dirname, "..");
+  
+  app.use(express.static(distPath));
+  
+  // SPA fallback: any route not matched by API or static files serves index.html
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+}
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 

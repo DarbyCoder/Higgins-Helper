@@ -4,15 +4,30 @@
  * top header, and bottom navigation bar. All pages are rendered as children.
  * Also renders global toast notifications (#1).
  */
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import { useUIStore } from "@/stores/useUIStore";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 interface Props { children: ReactNode; }
 
 export default function AppShell({ children }: Props) {
   const { toasts, dismissToast } = useUIStore();
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const { isInstallable, promptInstall } = useInstallPrompt();
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   return (
     <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
@@ -29,7 +44,36 @@ export default function AppShell({ children }: Props) {
 
       {/* App content */}
       <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
+        {isOffline && (
+          <div style={{
+            background: "#f59e0b", color: "#fff", fontSize: "0.75rem",
+            fontWeight: 600, padding: "0.3rem", textAlign: "center",
+          }}>
+            You are currently offline. Viewing cached data.
+          </div>
+        )}
         <Header />
+        {isInstallable && (
+          <div style={{
+            background: "var(--color-primary-ghost)",
+            border: "1px solid var(--color-primary)",
+            margin: "0 1rem 0.5rem", padding: "0.75rem",
+            borderRadius: "var(--radius-md)",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--color-text-1)", fontWeight: 500 }}>
+              Install Higgins Helper for offline access!
+            </span>
+            <button onClick={promptInstall} style={{
+              background: "var(--color-primary)", color: "#fff",
+              border: "none", borderRadius: "var(--radius-sm)",
+              padding: "0.4rem 0.75rem", fontSize: "0.75rem",
+              fontWeight: 600, cursor: "pointer",
+            }}>
+              Install
+            </button>
+          </div>
+        )}
         <main style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
           {children}
         </main>

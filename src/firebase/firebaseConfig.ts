@@ -10,18 +10,18 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyCfe9kDFczq2aqL154l9mpbPHoDTORLZQE",
+  authDomain: "higgins-helper-de50c.firebaseapp.com",
+  projectId: "higgins-helper-de50c",
+  storageBucket: "higgins-helper-de50c.firebasestorage.app",
+  messagingSenderId: "796882247014",
+  appId: "1:796882247014:web:736cb5628040bc3ed1fca7",
+  measurementId: "G-XE2BQW9LV5"
 };
 
 // Guard against double-initialization in hot-reload dev environments
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
-export const db   = getFirestore(app);
+export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();

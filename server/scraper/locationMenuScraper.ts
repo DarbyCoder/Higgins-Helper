@@ -80,7 +80,7 @@ function getMealNamesInOrder($: cheerio.CheerioAPI): string[] {
 
 function parseStation(
   $: cheerio.CheerioAPI,
-  stationEl: cheerio.AnyNode
+  stationEl: any
 ): FoodStation | null {
   const $station = $(stationEl);
 
@@ -143,8 +143,8 @@ function parseMealPeriods(
   const mealNames = getMealNamesInOrder($);
 
   // Ordered tab content panels
-  const tabEls: cheerio.Element[] = [];
-  $(MEAL_TAB_CONTENT_SELECTOR).each((_, el) => tabEls.push(el as cheerio.Element));
+  const tabEls: any[] = [];
+  $(MEAL_TAB_CONTENT_SELECTOR).each((_, el) => { tabEls.push(el as any); });
 
   // Build hours lookup from the Layer 1 stub (case-insensitive, ignoring parentheticals)
   const hoursLookup = new Map(

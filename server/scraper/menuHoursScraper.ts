@@ -80,7 +80,7 @@ function extractSlugFromUrl(href: string): string {
  */
 function parseHoursCell(
   $: cheerio.CheerioAPI,
-  hoursCell: cheerio.AnyNode
+  hoursCell: any
 ): LocationStub["meals"] {
   const spans = $(hoursCell)
     .find(HOURS_SPAN_SELECTOR)
@@ -125,7 +125,7 @@ function parseHoursCell(
  */
 function parseLocationRow(
   $: cheerio.CheerioAPI,
-  rowEl: cheerio.AnyNode,
+  rowEl: any,
   date: string
 ): LocationStub | null {
   const $row = $(rowEl);

@@ -4,7 +4,7 @@
  * that changes based on which page the user is on. Right side shows the
  * Higgins Helper "H" logo mark.
  */
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useDateStore, useUserStore } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
 
@@ -128,16 +128,18 @@ export default function Header() {
       </div>
 
       {/* Clark U / Higgins Helper logo mark */}
-      <img
-        src="/logo.png"
-        alt="Higgins Helper Logo"
-        style={{
-          height: 48, // slightly larger to accommodate the circular seal
-          width: "auto",
-          objectFit: "contain",
-          flexShrink: 0,
-        }}
-      />
+      <Link to="/profile" style={{ flexShrink: 0, display: "block" }}>
+        <img
+          src="/logo.png"
+          alt="Higgins Helper Logo"
+          style={{
+            height: 48, // slightly larger to accommodate the circular seal
+            width: "auto",
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      </Link>
     </header>
   );
 }

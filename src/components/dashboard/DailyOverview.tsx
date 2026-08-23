@@ -98,7 +98,7 @@ export default function DailyOverview({ totals, targets }: Props) {
             fontWeight: 600,
             color: "var(--color-text-2)"
           }}>
-            {Math.round(cups * 10000) / 10000} / {dailyGoalCups} cups
+            {(cups * 240).toLocaleString()} / {(dailyGoalCups * 240).toLocaleString()} mL
           </span>
         </div>
       </div>
