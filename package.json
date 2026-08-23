@@ -9,7 +9,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build:server": "tsc --project tsconfig.server.json",
     "build:client": "tsc && vite build",
-    "build": "npm run build:server && npm run build:client",
+    "build": "npm run build:client && npm run build:server",
     "start": "NODE_ENV=production node dist/server/index.js",
     "preview": "vite preview",
     "type-check": "tsc --noEmit"
