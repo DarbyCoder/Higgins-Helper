@@ -137,6 +137,17 @@ export type WeightUnit = "lbs" | "kg";
 
 export type HeightUnit = "in" | "cm";
 
+/**
+ * Fix #20: Reminder time preferences for each meal slot.
+ * Times are stored as "HH:MM" (24-hour) strings.
+ */
+export interface MealReminderPrefs {
+  enabled: boolean;
+  breakfastTime: string;  // e.g. "08:30"
+  lunchTime: string;      // e.g. "12:30"
+  dinnerTime: string;     // e.g. "18:30"
+}
+
 export interface UserProfile {
   name: string;
   weight: number;
@@ -149,6 +160,8 @@ export interface UserProfile {
   goal: WeightGoal;
   dietaryRestrictions: string[]; // e.g. ["vegan", "made_without_gluten"]
   wantsAIAdvisor?: boolean;
+  /** Fix #20: Persisted meal reminder preferences */
+  mealReminders?: MealReminderPrefs;
 }
 
 /**

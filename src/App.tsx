@@ -13,6 +13,7 @@ import { useFoodLogStore, useThemeStore } from "@/stores";
 import { AuthProvider } from "@/firebase/AuthProvider";
 import AuthGate from "@/components/auth/AuthGate";
 import { useFirestoreSync } from "@/hooks/useFirestoreSync";
+import { useMealReminders } from "@/hooks/useMealReminders";
 import AppShell from "@/components/layout/AppShell";
 import DashboardPage from "@/pages/DashboardPage";
 import MenuPage from "@/pages/MenuPage";
@@ -39,6 +40,9 @@ function RootLayout() {
 
   // Hydrate all stores from Firestore and set up real-time listeners
   useFirestoreSync();
+
+  // Fix #17 & #22: Schedule meal reminders and check for unlogged meals
+  useMealReminders();
 
   return (
     <AppShell>

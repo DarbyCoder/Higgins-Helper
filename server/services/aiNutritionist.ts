@@ -99,7 +99,9 @@ INSTRUCTIONS:
 // ─── Gemini API Client ───────────────────────────────────────────────────────
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_MODEL = "gemini-3.5-flash-lite";
+// Fix #3: "gemini-3.5-flash-lite" does not exist — every call was returning 404.
+// Default to "gemini-2.0-flash"; override via GEMINI_MODEL env var if needed.
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
 
 interface GeminiContent {
   role: "user" | "model";
@@ -136,13 +138,40 @@ export async function getAIResponse(
   }
 
   // ── Build conversation history for Gemini ──
-  // Gemini expects alternating user/model turns, starting with user
-  const contents: GeminiContent[] = history
-    .slice(-10) // Keep last 10 messages for context window
-    .map((msg) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }],
-    }));
+  // Fix #8: Gemini requires turns to strictly alternate user→model, starting
+  // with a user turn. history.slice(-10) could start with a "model" turn or
+  // include consecutive same-role turns (e.g. two user messages in a row),
+  // causing Gemini to reject with 400 Bad Request.
+  //
+  // Sanitization strategy:
+  //   1. Take the last 10 messages
+  //   2. Drop leading model turns (history must start with user)
+  //   3. Deduplicate consecutive same-role turns (keep the last of the group)
+  const rawHistory = history.slice(-10);
+
+  // Step 2: Drop any leading model turns
+  let startIdx = 0;
+  while (startIdx < rawHistory.length && rawHistory[startIdx].role !== "user") {
+    startIdx++;
+  }
+  const trimmedHistory = rawHistory.slice(startIdx);
+
+  // Step 3: Deduplicate consecutive same-role turns (keep last in each run)
+  const sanitizedHistory: ChatMessage[] = [];
+  for (const msg of trimmedHistory) {
+    const last = sanitizedHistory[sanitizedHistory.length - 1];
+    if (last && last.role === msg.role) {
+      // Replace the last entry instead of adding a new one with the same role
+      sanitizedHistory[sanitizedHistory.length - 1] = msg;
+    } else {
+      sanitizedHistory.push(msg);
+    }
+  }
+
+  const contents: GeminiContent[] = sanitizedHistory.map((msg) => ({
+    role: msg.role === "user" ? "user" : "model",
+    parts: [{ text: msg.content }],
+  }));
 
   // Append the current user message
   contents.push({

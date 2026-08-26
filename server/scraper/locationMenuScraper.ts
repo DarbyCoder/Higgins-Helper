@@ -1,23 +1,4 @@
-/**
- * @file server/scraper/locationMenuScraper.ts
- * @description Layer 2 scraper — fetches and parses an individual dining
- * location page to extract food stations, menu items, and full nutritional data.
- *
- * ── DOM Reality (verified 2026-08-10) ──────────────────────────────────────
- * The Clark dining site does NOT use unique IDs on .c-tab content divs.
- * Instead, ALL nav links share href="#", making the id-based tab↔name mapping
- * approach unreliable.
- *
- * Actual approach used:
- *   - Read nav links in DOM order  → produces an ordered list of meal names
- *   - Read .c-tab divs in DOM order → produces an ordered list of tab panels
- *   - Zip them by index: tabNames[i] is the name for tabs[i]
- *
- * This is the only reliable method because it matches what the browser does:
- * nav link 0 activates tab 0, nav link 1 activates tab 1, etc.
- */
-
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import * as cheerio from "cheerio";
 import type {
   MealPeriod,
@@ -106,8 +87,12 @@ function parseStation(
 
     if (!recipeId) return;
 
+    // Fix #4: recipeId is a Base64 string (e.g. "cmVjaXBlOjY0ODMwNw==") that
+    // contains ":" and "=" — both of which are invalid in CSS ID selectors.
+    // Using `#recipe-nutrition-${recipeId}` would throw a CSS syntax error or
+    // silently fail to match. Use an attribute selector instead.
     const $nutritionDiv = $item
-      .find(`#recipe-nutrition-${recipeId}`)
+      .find(`div[id="recipe-nutrition-${recipeId}"]`)
       .first();
 
     const nutritionJson = $nutritionDiv.length
@@ -151,9 +136,37 @@ function parseMealPeriods(
     stub.meals.map((m) => [m.name.toLowerCase().replace(/\s*\(.*?\)/, "").trim(), m])
   );
 
-  // #27: Scraper fragility guard. If the dining site layout changes such that
-  // the number of tabs doesn't match the number of nav labels, our index-based
-  // zipping will silently assign food to the wrong meals. Catch it loudly here.
+  // Fix #11: Fallback for retail/single-meal locations (e.g. Cougar Cafe, The Den)
+  // that render .menu-station elements directly on the page without .c-tab wrappers.
+  // When no tabs are found but stations exist, collect them under an "All Day" period.
+  if (tabEls.length === 0) {
+    const allStations: FoodStation[] = [];
+    $(STATION_WRAPPER_SELECTOR).each((_, stationEl) => {
+      const station = parseStation($, stationEl);
+      if (station) allStations.push(station);
+    });
+
+    if (allStations.length > 0) {
+      console.log(
+        `[locationMenuScraper] ${stub.name}: No meal tabs found — ` +
+        `collected ${allStations.length} station(s) under "All Day" (retail/single-meal layout)`
+      );
+      return [{
+        name: "All Day",
+        startTime: stub.meals[0]?.startTime ?? "",
+        endTime: stub.meals[0]?.endTime ?? "",
+        stations: allStations,
+      }];
+    }
+
+    console.warn(
+      `[locationMenuScraper] ${stub.name}: No meal tabs AND no stations found. ` +
+      `The page may be empty or the DOM structure has changed.`
+    );
+    return [];
+  }
+
+  // Scraper fragility guard: if tab count ≠ nav label count, zip may misassign meals.
   if (mealNames.length !== tabEls.length) {
     console.warn(
       `[locationMenuScraper] Layout mismatch for ${stub.name}: Found ${mealNames.length} meal nav labels but ${tabEls.length} content tabs. ` +
@@ -193,11 +206,13 @@ function parseMealPeriods(
   return mealPeriods;
 }
 
-// ─── Retry Helper (#28) ───────────────────────────────────────────────────────
+// ─── Retry Helper ─────────────────────────────────────────────────────────────
 
 /**
  * Retries an async operation up to maxAttempts times with exponential backoff.
- * Handles transient network errors and HTTP 5xx responses from the dining site.
+ *
+ * Fix #5: Uses axios.isAxiosError() and inspects err.response.status / err.code
+ * instead of searching err.message for patterns Axios never produces.
  */
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -211,17 +226,21 @@ async function withRetry<T>(
       return await fn();
     } catch (err) {
       lastError = err;
+      // Fix #5: Properly detect retryable Axios errors
       const isRetryable =
-        err instanceof Error &&
-        (err.message.includes("network") ||
-          err.message.includes("ECONNRESET") ||
-          err.message.includes("ETIMEDOUT") ||
-          /HTTP (5\d\d)/.test(err.message));
+        axios.isAxiosError(err) &&
+        ((err.response !== undefined &&
+          err.response.status >= 500 &&
+          err.response.status < 600) ||
+          err.code === "ECONNRESET" ||
+          err.code === "ETIMEDOUT" ||
+          err.code === "ECONNABORTED" ||
+          err.message.toLowerCase().includes("network"));
 
       if (!isRetryable || attempt === maxAttempts) break;
       const delay = baseDelayMs * Math.pow(2, attempt - 1);
       console.warn(
-        `[locationMenuScraper] ${label} — attempt ${attempt} failed, retrying in ${delay}ms…`
+        `[locationMenuScraper] ${label} — attempt ${attempt} failed (${axios.isAxiosError(err) ? err.code ?? err.response?.status : "unknown"}), retrying in ${delay}ms…`
       );
       await new Promise((r) => setTimeout(r, delay));
     }
@@ -247,10 +266,12 @@ export async function scrapeLocationMenu(
     );
     html = response.data;
   } catch (err) {
-    const axiosErr = err as AxiosError;
-    const status = axiosErr.response?.status ?? "network error";
+    const status = axios.isAxiosError(err)
+      ? (err.response?.status ?? "network error")
+      : "unknown";
+    const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `[locationMenuScraper] HTTP ${status} fetching ${stub.url}: ${axiosErr.message}`
+      `[locationMenuScraper] HTTP ${status} fetching ${stub.url}: ${msg}`
     );
   }
 
@@ -271,3 +292,4 @@ export async function scrapeLocationMenu(
     meals,
   };
 }
+

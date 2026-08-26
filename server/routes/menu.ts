@@ -22,7 +22,19 @@ import { menuCache } from "../cache/menuCache.js";
 
 export const menuRouter = Router();
 
-// ─── Date Validation (#4) ─────────────────────────────────────────────────────
+// ─── Date Helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Fix #7: Returns today's date in YYYY-MM-DD format using the America/New_York
+ * timezone (Clark University is in Worcester, MA, Eastern Time).
+ *
+ * The previous implementation used `new Date().toISOString().slice(0, 10)`,
+ * which returns the UTC date. Between ~7 PM and midnight ET, UTC has already
+ * rolled to the next day, so students would see *tomorrow's* menu.
+ */
+function getLocalDateString(d = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
+}
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -161,7 +173,7 @@ menuRouter.get(
     const dateParam = req.query.date as string | undefined;
 
     // Default to today if no date provided
-    const date = dateParam ?? new Date().toISOString().slice(0, 10);
+    const date = dateParam ?? getLocalDateString();
 
     if (!isValidDate(date)) {
       res.status(400).json({
@@ -197,7 +209,7 @@ menuRouter.get(
   refreshRateLimiter,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const dateParam = req.query.date as string | undefined;
-    const date = dateParam ?? new Date().toISOString().slice(0, 10);
+    const date = dateParam ?? getLocalDateString();
 
     if (!isValidDate(date)) {
       res.status(400).json({ error: "Invalid date parameter" });

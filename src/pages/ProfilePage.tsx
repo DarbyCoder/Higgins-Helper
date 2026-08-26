@@ -1,14 +1,16 @@
-/**
- * @file src/pages/ProfilePage.tsx
- * @description User profile settings with onboarding form.
- * Sets name, weight, height, age, sex, activity level, goal, and dietary restrictions.
- * Macro targets are auto-computed via Mifflin-St Jeor TDEE on save.
- */
 import { useState } from "react";
 import { useUserStore, calculateMacroTargets, useThemeStore } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
-import type { UserProfile, ActivityLevel, WeightGoal } from "@/types";
+import type { UserProfile, ActivityLevel, WeightGoal, MealReminderPrefs } from "@/types";
 
+// ─── Default Reminder Preferences ─────────────────────────────────────────────
+
+const DEFAULT_REMINDER_PREFS: MealReminderPrefs = {
+  enabled: false,
+  breakfastTime: "08:30",
+  lunchTime: "12:30",
+  dinnerTime: "18:30",
+};
 
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
   sedentary: "Sedentary — desk job, classes, little movement",
@@ -38,7 +40,6 @@ export default function ProfilePage() {
   const { user, signOut } = useAuth();
   const isDark = theme === "dark";
 
-
   // Form state seeded from existing profile
   const [form, setForm] = useState<Partial<UserProfile>>({
     name: userProfile?.name ?? "",
@@ -54,10 +55,76 @@ export default function ProfilePage() {
     wantsAIAdvisor: userProfile?.wantsAIAdvisor ?? true,
   });
   const [saved, setSaved] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
-    return typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
-  });
 
+  // Fix #20, #21: Reminder prefs are seeded from the persisted user profile,
+  // not from the browser's Notification.permission — these are separate concerns.
+  const [reminderPrefs, setReminderPrefs] = useState<MealReminderPrefs>(
+    userProfile?.mealReminders ?? DEFAULT_REMINDER_PREFS
+  );
+  const [permissionState, setPermissionState] = useState<NotificationPermission | "unsupported">(
+    () => {
+      if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+      return Notification.permission;
+    }
+  );
+
+  /**
+   * Fix #19 & #21: Request permission and show a test notification via the
+   * Service Worker (not new Notification() which fails on mobile/PWA).
+   * Returns the resulting permission state.
+   */
+  async function requestPermissionAndNotify(): Promise<NotificationPermission> {
+    if (!("Notification" in window)) return "denied";
+
+    const perm = await Notification.requestPermission();
+    setPermissionState(perm);
+
+    if (perm === "granted" && "serviceWorker" in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        // Fix #19: Use reg.showNotification() — works on mobile & PWAs.
+        // new Notification() throws TypeError on Android Chrome and iOS Safari.
+        await reg.showNotification("Higgins Helper 🥗", {
+          body: "Meal reminders enabled! You'll be reminded to log breakfast, lunch, and dinner.",
+          icon: "/logo-square.jpg",
+          badge: "/logo-square.jpg",
+          tag: "reminder-test",
+          data: { url: "/log" },
+        });
+      } catch {
+        // SW showNotification failed (e.g. not in standalone mode on iOS) — silent
+      }
+    }
+    return perm;
+  }
+
+  /**
+   * Saves updated reminder prefs to the user profile store (persisted to
+   * Firestore). Fix #20: prefs are no longer ephemeral component state.
+   */
+  function saveReminderPrefs(prefs: MealReminderPrefs) {
+    setReminderPrefs(prefs);
+    if (userProfile) {
+      setUserProfile({ ...userProfile, mealReminders: prefs });
+    }
+  }
+
+  async function handleToggleReminders() {
+    if (!reminderPrefs.enabled) {
+      // Turning ON
+      if (permissionState !== "granted") {
+        const perm = await requestPermissionAndNotify();
+        if (perm !== "granted") {
+          alert("Notification permission denied. Check your browser settings to enable notifications.");
+          return;
+        }
+      }
+      saveReminderPrefs({ ...reminderPrefs, enabled: true });
+    } else {
+      // Turning OFF — just disable without revoking browser permission
+      saveReminderPrefs({ ...reminderPrefs, enabled: false });
+    }
+  }
   function field<K extends keyof UserProfile>(key: K) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const val = e.target.type === "number" ? Number(e.target.value) : e.target.value;
@@ -327,56 +394,93 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* ── Push Notifications ── */}
+      {/* ── Meal Reminders ── */}
       <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
         <div className="section-title">Notifications</div>
-        <div style={{
-          padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", marginBottom: "0.75rem",
-          background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
-          fontSize: "0.75rem", color: "#f59e0b", lineHeight: 1.5,
-        }}>
-          ⚠️ <strong>Beta feature.</strong> Push notifications require installing Higgins Helper as a PWA. Tap the share button in your browser and choose "Add to Home Screen" first.
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+
+        {permissionState === "unsupported" && (
+          <div style={{
+            padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", marginBottom: "0.75rem",
+            background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
+            fontSize: "0.75rem", color: "#ef4444", lineHeight: 1.5,
+          }}>
+            ❌ Your browser does not support notifications.
+          </div>
+        )}
+
+        {permissionState !== "unsupported" && (
+          <div style={{
+            padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", marginBottom: "0.75rem",
+            background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
+            fontSize: "0.75rem", color: "#f59e0b", lineHeight: 1.5,
+          }}>
+            ⚠️ <strong>Beta feature.</strong> On iOS, notifications require installing as a PWA (tap Share → Add to Home Screen). On Android, tap Enable and allow notifications when prompted.
+          </div>
+        )}
+
+        {/* ── On/Off toggle — Fix #21: can now be toggled both ways ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
               Meal Reminders
             </div>
             <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              Reminders to log breakfast, lunch, & dinner
+              {reminderPrefs.enabled ? "Reminders are active" : "Reminders to log breakfast, lunch, & dinner"}
             </div>
           </div>
+          {/* Fix #21: Proper on/off toggle instead of permanently-disabled "Enabled ✓" */}
           <button
-            onClick={async () => {
-              if (!("Notification" in window)) {
-                alert("Your browser doesn't support notifications.");
-                return;
-              }
-              if (Notification.permission === "granted") {
-                alert("Notifications are already enabled!");
-                return;
-              }
-              const perm = await Notification.requestPermission();
-              if (perm === "granted") {
-                new Notification("Higgins Helper 🥗", {
-                  body: "Notifications enabled! We'll remind you to log your meals.",
-                  icon: "/logo-square.jpg",
-                });
-                setNotificationsEnabled(true);
-              } else {
-                alert("Notification permission denied. Check your browser settings.");
-              }
-            }}
-            className="btn-ghost"
+            role="switch"
+            aria-checked={reminderPrefs.enabled}
+            onClick={permissionState !== "unsupported" ? handleToggleReminders : undefined}
+            disabled={permissionState === "unsupported"}
             style={{
-              fontSize: "0.75rem",
-              color: notificationsEnabled ? "#10b981" : undefined
+              width: 48, height: 26, borderRadius: 999, border: "none",
+              background: reminderPrefs.enabled
+                ? "linear-gradient(135deg, #10b981, #059669)"
+                : "rgba(100,100,100,0.3)",
+              position: "relative", cursor: permissionState === "unsupported" ? "not-allowed" : "pointer",
+              transition: "background 0.25s", padding: 0,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              flexShrink: 0,
             }}
-            disabled={notificationsEnabled}
+            aria-label="Toggle meal reminders"
           >
-            {notificationsEnabled ? "Enabled ✓" : "Enable"}
+            <span style={{
+              position: "absolute",
+              top: 3, left: reminderPrefs.enabled ? 25 : 3,
+              width: 20, height: 20, borderRadius: "50%",
+              background: "#fff",
+              transition: "left 0.22s cubic-bezier(0.34,1.56,0.64,1)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+            }} />
           </button>
         </div>
+
+        {/* ── Time pickers — only shown when reminders are enabled ── */}
+        {reminderPrefs.enabled && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", paddingTop: "0.5rem", borderTop: "1px solid var(--color-border)" }}>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginBottom: "0.25rem" }}>
+              Customize reminder times
+            </div>
+            {[
+              { label: "🌅 Breakfast", key: "breakfastTime" as const },
+              { label: "☀️ Lunch",     key: "lunchTime"     as const },
+              { label: "🌙 Dinner",    key: "dinnerTime"    as const },
+            ].map(({ label, key }) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.82rem", color: "var(--color-text-2)" }}>{label}</span>
+                <input
+                  type="time"
+                  className="input"
+                  value={reminderPrefs[key]}
+                  onChange={(e) => saveReminderPrefs({ ...reminderPrefs, [key]: e.target.value })}
+                  style={{ width: "7.5rem", fontSize: "0.82rem", padding: "0.3rem 0.5rem" }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Appearance ── */}

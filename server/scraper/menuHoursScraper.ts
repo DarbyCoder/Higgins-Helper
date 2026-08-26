@@ -18,11 +18,13 @@
  * ```
  */
 
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import * as cheerio from "cheerio";
 import type { LocationStub } from "../types/index.js";
 import {
+  BASE_URL,
   buildMenuHoursUrl,
+  buildLocationUrl,
   LOCATION_ROW_SELECTOR,
   LOCATION_LINK_SELECTOR,
   HOURS_SPAN_SELECTOR,
@@ -44,16 +46,21 @@ const httpClient = axios.create({
 // ─── URL Slug Extraction ──────────────────────────────────────────────────────
 
 /**
- * Extracts the location slug from its full URL.
+ * Extracts the location slug from its full or relative URL.
  * Input:  "https://clark.nmcfood.com/locations/the-table-at-higgins/?date=2026-08-09"
+ *   OR    "/locations/the-table-at-higgins/"
  * Output: "the-table-at-higgins"
  *
- * @param href - Full location URL string
+ * Fix #1: Pass BASE_URL as second argument so relative paths like
+ * "/locations/..." are resolved correctly instead of throwing TypeError.
+ *
+ * @param href - Full or relative location URL string
  * @returns The slug segment, or an empty string if the URL is malformed
  */
 function extractSlugFromUrl(href: string): string {
   try {
-    const url = new URL(href);
+    // Fix #1: BASE_URL ensures relative hrefs (e.g. "/locations/foo/") resolve correctly
+    const url = new URL(href, BASE_URL);
     // pathname: "/locations/the-table-at-higgins/"
     const parts = url.pathname.split("/").filter(Boolean);
     // parts: ["locations", "the-table-at-higgins"]
@@ -74,10 +81,18 @@ function extractSlugFromUrl(href: string): string {
  *
  * Some locations may show "Closed" instead of meal spans.
  *
+ * Fix #12: Validates times with a regex that accepts both colon formats
+ * ("7:00 am") and non-colon formats ("7 am", "11 am") instead of the
+ * brittle `includes(":")` check that rejected valid non-colon times.
+ *
  * @param $ - Cheerio root
  * @param hoursCell - The <td> element containing the hours spans
  * @returns Array of { name, startTime, endTime } objects
  */
+
+/** Matches times like "7:00 am", "11 am", "2:30 PM" */
+const TIME_REGEX = /^\d{1,2}(:\d{2})?\s*(am|pm)$/i;
+
 function parseHoursCell(
   $: cheerio.CheerioAPI,
   hoursCell: any
@@ -104,8 +119,8 @@ function parseHoursCell(
       continue;
     }
 
-    // Basic validation: start and end should look like times (contain ":")
-    if (name && startTime.includes(":") && endTime.includes(":")) {
+    // Fix #12: Accept both "7:00 am" and "7 am" style times
+    if (name && TIME_REGEX.test(startTime) && TIME_REGEX.test(endTime)) {
       meals.push({ name, startTime, endTime });
     }
   }
@@ -141,9 +156,9 @@ function parseLocationRow(
   const slug = extractSlugFromUrl(href);
   if (!slug) return null;
 
-  // Reconstruct a clean URL with our date param (the href may already have one,
-  // but we rebuild it to guarantee consistency and avoid stale dates from the site)
-  const cleanUrl = `https://clark.nmcfood.com/locations/${slug}/?date=${date}`;
+  // Fix #14: Use buildLocationUrl() from selectors.ts instead of a hardcoded
+  // base URL string, so a single edit to selectors.ts propagates everywhere.
+  const cleanUrl = buildLocationUrl(slug, date);
 
   // ── Parse hours from the second <td> in the row ──
   const cells = $row.find("td");
@@ -151,13 +166,21 @@ function parseLocationRow(
   const meals = parseHoursCell($, hoursCell);
 
   // ── Determine open status ──
-  // Base isOpen on parsed meals — more reliable than scanning row text for "closed".
-  // The word "closed" can appear inside unrelated strings; presence of valid meal
-  // periods is ground truth.
-  const hoursText = hoursCell.text().trim();
+  // Fix #3.6: Tightened isOpen logic. Previously any non-empty hoursText that
+  // didn't contain the exact word "closed" was treated as open, causing false
+  // positives for "Summer Break", "No dining service today", etc.
+  // Now: only treat as open when we actually parsed valid meal periods.
+  // If meals is empty, fall back to the word "closed" check as a secondary
+  // signal — but default to closed rather than open on ambiguous text.
+  const hoursText = hoursCell.text().trim().toLowerCase();
   const isOpen =
     meals.length > 0 ||
-    (!hoursText.toLowerCase().includes(CLOSED_INDICATOR) && hoursText.length > 0);
+    (hoursText.length > 0 &&
+      !hoursText.includes(CLOSED_INDICATOR) &&
+      !hoursText.includes("no service") &&
+      !hoursText.includes("break") &&
+      !hoursText.includes("renovation") &&
+      !hoursText.includes("closed"));
 
   return {
     slug,
@@ -169,11 +192,16 @@ function parseLocationRow(
   };
 }
 
-// ─── Retry Helper (#28) ───────────────────────────────────────────────────────
+// ─── Retry Helper ─────────────────────────────────────────────────────────────
 
 /**
  * Retries an async operation up to maxAttempts times with exponential backoff.
- * Handles transient network errors and HTTP 5xx responses from the dining site.
+ *
+ * Fix #5: The previous implementation checked `err.message` for patterns like
+ * "ECONNRESET" or "HTTP 500", but Axios never formats errors that way:
+ *   - Network errors store the code on `err.code`, not `err.message`
+ *   - HTTP errors use "Request failed with status code 500" in `err.message`
+ * Now uses `axios.isAxiosError()` and inspects `err.response.status` / `err.code`.
  */
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -187,17 +215,21 @@ async function withRetry<T>(
       return await fn();
     } catch (err) {
       lastError = err;
+      // Fix #5: Properly detect retryable Axios errors
       const isRetryable =
-        err instanceof Error &&
-        (err.message.includes("network") ||
-          err.message.includes("ECONNRESET") ||
-          err.message.includes("ETIMEDOUT") ||
-          /HTTP (5\d\d)/.test(err.message));
+        axios.isAxiosError(err) &&
+        ((err.response !== undefined &&
+          err.response.status >= 500 &&
+          err.response.status < 600) ||
+          err.code === "ECONNRESET" ||
+          err.code === "ETIMEDOUT" ||
+          err.code === "ECONNABORTED" ||
+          err.message.toLowerCase().includes("network"));
 
       if (!isRetryable || attempt === maxAttempts) break;
       const delay = baseDelayMs * Math.pow(2, attempt - 1);
       console.warn(
-        `[menuHoursScraper] ${label} — attempt ${attempt} failed, retrying in ${delay}ms…`
+        `[menuHoursScraper] ${label} — attempt ${attempt} failed (${axios.isAxiosError(err) ? err.code ?? err.response?.status : "unknown"}), retrying in ${delay}ms…`
       );
       await new Promise((r) => setTimeout(r, delay));
     }
@@ -232,10 +264,12 @@ export async function scrapeMenuHours(date: string): Promise<LocationStub[]> {
     );
     html = response.data;
   } catch (err) {
-    const axiosErr = err as AxiosError;
-    const status = axiosErr.response?.status ?? "network error";
+    const status = axios.isAxiosError(err)
+      ? (err.response?.status ?? "network error")
+      : "unknown";
+    const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `[menuHoursScraper] Failed to fetch ${url} — HTTP ${status}: ${axiosErr.message}`
+      `[menuHoursScraper] Failed to fetch ${url} — HTTP ${status}: ${msg}`
     );
   }
 
