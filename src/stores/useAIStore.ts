@@ -42,7 +42,9 @@ async function sendChatMessage(body: AIChatRequestBody): Promise<string> {
     let errorMsg = `AI API returned ${response.status}: ${response.statusText}`;
     try {
       const errBody = await response.json() as { error?: string; message?: string };
-      if (errBody.message) errorMsg = errBody.message;
+      // Server returns { error: "..." } — also accept { message: "..." } for compat
+      if (errBody.error)   errorMsg = errBody.error;
+      else if (errBody.message) errorMsg = errBody.message;
     } catch { /* ignore JSON parse failure */ }
     throw new Error(errorMsg);
   }
