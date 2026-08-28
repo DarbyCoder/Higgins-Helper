@@ -90,21 +90,6 @@ aiRouter.post(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { message, context, history } = req.body as ChatRequestBody;
 
-    // Fast-fail with a clear 503 if the API key isn't configured.
-    // This surfaces as a human-readable error on the frontend instead of
-    // a generic "Something went wrong" 500.
-    if (!process.env.GEMINI_API_KEY) {
-      console.error(
-        "[ai/chat] GEMINI_API_KEY is not set. " +
-        "Add it to your Render environment variables: " +
-        "Dashboard → higgins-helper service → Environment → Add Variable"
-      );
-      res.status(503).json({
-        error: "AI chat is not configured. The server is missing its GEMINI_API_KEY environment variable.",
-      });
-      return;
-    }
-
     try {
       const reply = await getAIResponse(
         message.trim(),
@@ -113,10 +98,7 @@ aiRouter.post(
       );
       res.json({ reply });
     } catch (err) {
-      // Log the real Gemini error to server logs (visible in Render dashboard)
-      console.error("[ai/chat] Gemini API error:", err instanceof Error ? err.message : err);
       next(err);
     }
   }
 );
-

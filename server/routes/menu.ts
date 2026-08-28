@@ -22,19 +22,7 @@ import { menuCache } from "../cache/menuCache.js";
 
 export const menuRouter = Router();
 
-// ─── Date Helpers ─────────────────────────────────────────────────────────────
-
-/**
- * Fix #7: Returns today's date in YYYY-MM-DD format using the America/New_York
- * timezone (Clark University is in Worcester, MA, Eastern Time).
- *
- * The previous implementation used `new Date().toISOString().slice(0, 10)`,
- * which returns the UTC date. Between ~7 PM and midnight ET, UTC has already
- * rolled to the next day, so students would see *tomorrow's* menu.
- */
-function getLocalDateString(d = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
-}
+// ─── Date Validation (#4) ─────────────────────────────────────────────────────
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -95,31 +83,11 @@ async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
     return emptyResponse;
   }
 
-  // ── Layer 2: Fetch location menus with bounded concurrency ──
-  //
-  // WHY NOT Promise.allSettled(all at once)?
-  // Each scrape loads a full Cheerio instance + nutrition JSON blobs into memory.
-  // The Table at Higgins alone can hold 100+ items. Fetching all 6-8 locations
-  // simultaneously spikes Node.js heap past its 256 MB default limit → OOM crash.
-  //
-  // Cap at SCRAPE_CONCURRENCY=3: only 3 Cheerio instances are alive at once,
-  // cutting peak memory by ~60% while keeping the batch fast (~3s total).
-  const SCRAPE_CONCURRENCY = 3;
-  const settledResults: PromiseSettledResult<DiningLocation>[] = [];
-
-  for (let i = 0; i < locationStubs.length; i += SCRAPE_CONCURRENCY) {
-    const batch = locationStubs.slice(i, i + SCRAPE_CONCURRENCY);
-    const batchResults = await Promise.allSettled(
-      batch.map((stub) => scrapeLocationMenu(stub))
-    );
-    settledResults.push(...batchResults);
-
-    // Explicitly yield between batches so V8's garbage collector can reclaim
-    // the Cheerio instances from the completed batch before the next one starts.
-    if (i + SCRAPE_CONCURRENCY < locationStubs.length) {
-      await new Promise((r) => setImmediate(r));
-    }
-  }
+  // ── Layer 2: Fetch all location menus in parallel ──
+  // We use Promise.allSettled so one failing location doesn't kill the batch
+  const settledResults = await Promise.allSettled(
+    locationStubs.map((stub) => scrapeLocationMenu(stub))
+  );
 
   const locations: DiningLocation[] = [];
 
@@ -193,7 +161,7 @@ menuRouter.get(
     const dateParam = req.query.date as string | undefined;
 
     // Default to today if no date provided
-    const date = dateParam ?? getLocalDateString();
+    const date = dateParam ?? new Date().toISOString().slice(0, 10);
 
     if (!isValidDate(date)) {
       res.status(400).json({
@@ -229,7 +197,7 @@ menuRouter.get(
   refreshRateLimiter,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const dateParam = req.query.date as string | undefined;
-    const date = dateParam ?? getLocalDateString();
+    const date = dateParam ?? new Date().toISOString().slice(0, 10);
 
     if (!isValidDate(date)) {
       res.status(400).json({ error: "Invalid date parameter" });
@@ -246,5 +214,4 @@ menuRouter.get(
     }
   }
 );
-
 
