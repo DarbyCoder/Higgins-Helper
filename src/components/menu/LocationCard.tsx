@@ -64,14 +64,17 @@ export default function LocationCard({ location, onSelectItem }: Props) {
     location.meals.find((m) => m.name === activeMeal) ?? location.meals[0];
 
   function filterItems(items: MenuItem[]): MenuItem[] {
+    // Defensive: guard against undefined items array (malformed server response)
+    if (!Array.isArray(items)) return [];
     let filtered = items;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((i) => i.name.toLowerCase().includes(q));
+      filtered = filtered.filter((i) => (i.name ?? "").toLowerCase().includes(q));
     }
     if (activeDietaryFilters.length > 0) {
       filtered = filtered.filter((i) =>
-        activeDietaryFilters.every((f) => i.attributes.some((a) => a.icon === f))
+        // Guard: attributes may be undefined if server returned malformed JSON
+        activeDietaryFilters.every((f) => (i.attributes ?? []).some((a) => a.icon === f))
       );
     }
     return filtered;

@@ -12,6 +12,7 @@ import type { MenuItem, DiningLocation } from "@/types";
 import MenuSearch from "@/components/menu/MenuSearch";
 import LocationCard from "@/components/menu/LocationCard";
 import NutritionModal from "@/components/menu/NutritionModal";
+import { LocationCardErrorBoundary } from "@/components/menu/LocationCardErrorBoundary";
 
 export default function MenuPage() {
   const navigate = useNavigate();
@@ -103,7 +104,9 @@ export default function MenuPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "0.75rem" }}>
           <div className="section-title">Open Now ({openLocations.length})</div>
           {openLocations.map((loc) => (
-            <LocationCard key={loc.slug} location={loc} onSelectItem={handleSelectItem} />
+            <LocationCardErrorBoundary key={loc.slug} locationName={loc.name}>
+              <LocationCard location={loc} onSelectItem={handleSelectItem} />
+            </LocationCardErrorBoundary>
           ))}
         </div>
       )}
@@ -113,7 +116,9 @@ export default function MenuPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <div className="section-title">Closed ({closedLocations.length})</div>
           {closedLocations.map((loc) => (
-            <LocationCard key={loc.slug} location={loc} onSelectItem={handleSelectItem} />
+            <LocationCardErrorBoundary key={loc.slug} locationName={loc.name}>
+              <LocationCard location={loc} onSelectItem={handleSelectItem} />
+            </LocationCardErrorBoundary>
           ))}
         </div>
       )}

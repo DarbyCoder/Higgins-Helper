@@ -11,8 +11,14 @@ interface Props {
 }
 
 export default function MenuItemCard({ item, onSelect }: Props) {
-  // Show at most 3 dietary icons
-  const visibleAttrs = item.attributes.slice(0, 3);
+  // Guard: attributes may be missing at runtime if server returned malformed JSON
+  const attrs = Array.isArray(item.attributes) ? item.attributes : [];
+  const visibleAttrs = attrs.slice(0, 3);
+
+  // Guard: numeric fields may be null/NaN from unusual nutrition JSON blobs
+  const protein   = Number.isFinite(item.protein)    ? item.protein    : 0;
+  const carbs     = Number.isFinite(item.totalCarbs)  ? item.totalCarbs : 0;
+  const calories  = Number.isFinite(item.calories)    ? item.calories   : 0;
 
   return (
     <button
@@ -33,7 +39,7 @@ export default function MenuItemCard({ item, onSelect }: Props) {
       {/* Main content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {item.name}
+          {item.name ?? "Unknown item"}
         </div>
         <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
           {item.servingSize}
@@ -47,11 +53,11 @@ export default function MenuItemCard({ item, onSelect }: Props) {
                 background: "rgba(16,185,129,0.1)", padding: "0.1rem 0.35rem",
                 borderRadius: "999px",
               }}>
-                {a.icon.replace(/_/g, " ")}
+                {(a.icon ?? "").replace(/_/g, " ")}
               </span>
             ))}
-            {item.attributes.length > 3 && (
-              <span style={{ fontSize: "0.58rem", color: "var(--color-text-3)" }}>+{item.attributes.length - 3}</span>
+            {attrs.length > 3 && (
+              <span style={{ fontSize: "0.58rem", color: "var(--color-text-3)" }}>+{attrs.length - 3}</span>
             )}
           </div>
         )}
@@ -60,13 +66,13 @@ export default function MenuItemCard({ item, onSelect }: Props) {
       {/* Calorie + macro mini-column */}
       <div style={{ flexShrink: 0, textAlign: "right" }}>
         <div style={{ fontSize: "1rem", fontWeight: 800, color: "var(--color-primary-light)" }}>
-          {item.calories}
+          {calories}
         </div>
         <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)", lineHeight: 1.3 }}>
           cal
         </div>
         <div style={{ fontSize: "0.65rem", color: "var(--color-text-3)", marginTop: 2 }}>
-          P:{item.protein.toFixed(0)}g C:{item.totalCarbs.toFixed(0)}g
+          P:{protein.toFixed(0)}g C:{carbs.toFixed(0)}g
         </div>
       </div>
 
