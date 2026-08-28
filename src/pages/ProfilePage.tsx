@@ -600,7 +600,7 @@ export default function ProfilePage() {
       </div>
 
       <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", marginTop: "1rem" }}>
-        Higgins Helper v1.0.3 · Clark University · Data synced to cloud
+        Higgins Helper v1.0.4 · Clark University · Data synced to cloud
       </p>
     </div>
   );
