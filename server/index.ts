@@ -13,7 +13,7 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import { menuRouter } from "./routes/menu.js";
+import { menuRouter, getScrapePromise, getLocalDateString } from "./routes/menu.js";
 import { aiRouter } from "./routes/ai.js";
 
 // ─── Startup Environment Validation ───────────────────────────────────────────
@@ -105,8 +105,64 @@ app.listen(PORT, () => {
   console.log(`[server] Higgins Helper API running at http://localhost:${PORT}`);
   console.log(`[server] CORS origin: ${CORS_ORIGIN}`);
   console.log(`[server] Environment: ${isDev ? "development" : "production"}`);
-  console.log(`[server] Try: http://localhost:${PORT}/api/menu?date=${new Date().toISOString().slice(0, 10)}`);
+  console.log(`[server] Try: http://localhost:${PORT}/api/menu?date=${getLocalDateString()}`);
+
+  // ─── Startup Cache Pre-Warming ──────────────────────────────────────────────
+  // Trigger a background scrape of today's menu immediately after the server
+  // starts. By the time the first user navigates to the Menu tab, the cache is
+  // already warm → instant response instead of a 10-second cold scrape.
+  //
+  // setImmediate defers until after the listen() callback returns so the server
+  // is fully ready before we fire the first network request.
+  setImmediate(() => {
+    const today = getLocalDateString();
+    console.log(`[server] Pre-warming cache for ${today}…`);
+    getScrapePromise(today)
+      .then(() => console.log(`[server] Cache pre-warm complete for ${today}`))
+      .catch((err) => console.warn(`[server] Cache pre-warm failed (non-fatal):`, err?.message ?? err));
+  });
+
+  // ─── Daily 6am ET Re-Warm ───────────────────────────────────────────────────
+  // Clark Dining refreshes its menu overnight. Re-warm at 6am ET so the first
+  // student to check the menu each morning gets instant data.
+  scheduleDaily6amReWarm();
 });
+
+/**
+ * Schedules a one-shot timer that fires at the next 6:00 AM Eastern Time,
+ * warms the cache for that day, then re-schedules itself for the next 6am.
+ * This keeps the cache hot through the dining day without any external cron job.
+ */
+function scheduleDaily6amReWarm(): void {
+  const now = new Date();
+
+  // Compute next 6am ET
+  const next6amET = new Date(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(now).replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2") + "T06:00:00-05:00"
+  );
+  // If 6am today has already passed, advance to tomorrow
+  if (next6amET <= now) next6amET.setDate(next6amET.getDate() + 1);
+
+  const msUntil = next6amET.getTime() - now.getTime();
+  console.log(
+    `[server] Daily re-warm scheduled for ${next6amET.toLocaleString("en-US", { timeZone: "America/New_York" })} ET ` +
+    `(in ${Math.round(msUntil / 1000 / 60)} min)`
+  );
+
+  setTimeout(() => {
+    const today = getLocalDateString();
+    console.log(`[server] Daily re-warm: pre-warming cache for ${today}`);
+    getScrapePromise(today)
+      .then(() => console.log(`[server] Daily re-warm complete for ${today}`))
+      .catch((err) => console.warn(`[server] Daily re-warm failed (non-fatal):`, err?.message ?? err));
+
+    // Re-schedule for tomorrow's 6am
+    scheduleDaily6amReWarm();
+  }, msUntil).unref(); // unref() so the timer doesn't keep Node alive if the server shuts down
+}
 
 export { app };
 

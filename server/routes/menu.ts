@@ -22,7 +22,15 @@ import { menuCache } from "../cache/menuCache.js";
 
 export const menuRouter = Router();
 
-// ─── Date Validation (#4) ─────────────────────────────────────────────────────
+// ─── Date Helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Returns today's date in YYYY-MM-DD using America/New_York timezone.
+ * Clark University is in Worcester, MA — UTC would show tomorrow's menu after ~8pm ET.
+ */
+export function getLocalDateString(d = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
+}
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -44,7 +52,7 @@ function isValidDate(dateStr: string): boolean {
   );
 }
 
-// ─── Cache Stampede Prevention (#9) ──────────────────────────────────────────
+// ─── Cache Stampede Prevention ────────────────────────────────────────────────
 // Store in-flight Promises per date so concurrent cache-miss requests share
 // the same scrape instead of each spawning their own.
 
@@ -128,10 +136,12 @@ async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
 
 /**
  * Returns a shared in-flight Promise for the given date, or starts a new scrape.
- * Prevents the thundering herd: if 50 requests arrive at a cache miss simultaneously,
- * they all share one scrape instead of spawning 50 parallel scrapers.
+ * Prevents the thundering herd: if many requests arrive at a cache miss
+ * simultaneously, they all share one scrape instead of spawning many scrapers.
+ *
+ * Exported so server/index.ts can call it for startup pre-warming.
  */
-function getScrapePromise(date: string): Promise<DailyMenuResponse> {
+export function getScrapePromise(date: string): Promise<DailyMenuResponse> {
   const existing = inflightScrapes.get(date);
   if (existing) return existing;
 
@@ -157,11 +167,8 @@ const refreshRateLimiter = rateLimit({
 menuRouter.get(
   "/",
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // ── Validate the `date` query param ──
     const dateParam = req.query.date as string | undefined;
-
-    // Default to today if no date provided
-    const date = dateParam ?? new Date().toISOString().slice(0, 10);
+    const date = dateParam ?? getLocalDateString(); // Eastern Time — not UTC
 
     if (!isValidDate(date)) {
       res.status(400).json({
@@ -172,20 +179,35 @@ menuRouter.get(
     }
 
     try {
-      // ── Cache lookup ──
-      const cached = menuCache.get(date);
-      if (cached) {
+      // ── 1. Fresh cache HIT ─────────────────────────────────────────────────
+      const fresh = menuCache.get(date);
+      if (fresh) {
         res.setHeader("X-Cache", "HIT");
-        res.json(cached);
+        res.json(fresh);
         return;
       }
 
-      // ── Cache miss: run scraping pipeline (shared in-flight Promise) ──
+      // ── 2. Stale-while-revalidate ──────────────────────────────────────────
+      // If a previous scrape's data exists but has expired, serve it instantly
+      // and trigger a background refresh. The user sees data immediately (~0ms)
+      // instead of waiting ~8s for a full re-scrape.
+      const stale = menuCache.getStale(date);
+      if (stale) {
+        res.setHeader("X-Cache", "STALE");
+        res.json(stale);
+        // Background refresh — don't block the response
+        getScrapePromise(date).catch((err) =>
+          console.error("[menu route] Background SWR refresh failed:", err)
+        );
+        return;
+      }
+
+      // ── 3. Cold miss — no data at all, must wait for full scrape ──────────
       res.setHeader("X-Cache", "MISS");
       const data = await getScrapePromise(date);
       res.json(data);
     } catch (err) {
-      next(err); // Delegate to Express error handler
+      next(err);
     }
   }
 );
@@ -197,7 +219,7 @@ menuRouter.get(
   refreshRateLimiter,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const dateParam = req.query.date as string | undefined;
-    const date = dateParam ?? new Date().toISOString().slice(0, 10);
+    const date = dateParam ?? getLocalDateString(); // Eastern Time — not UTC
 
     if (!isValidDate(date)) {
       res.status(400).json({ error: "Invalid date parameter" });
@@ -214,4 +236,3 @@ menuRouter.get(
     }
   }
 );
-

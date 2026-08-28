@@ -22,10 +22,12 @@ class MenuCache {
   private readonly store = new Map<string, CacheEntry<DailyMenuResponse>>();
 
   /**
-   * Retrieves a cached menu response if it exists and has not expired.
+   * Retrieves a cached menu response if it exists AND has not expired.
+   * Expired entries are intentionally NOT evicted here — they remain in the
+   * store so getStale() can serve them for the stale-while-revalidate pattern.
    *
    * @param date - "YYYY-MM-DD" cache key
-   * @returns The cached DailyMenuResponse, or null on a miss/expiry
+   * @returns Fresh DailyMenuResponse, or null if missing/expired
    */
   get(date: string): DailyMenuResponse | null {
     const entry = this.store.get(date);
@@ -33,13 +35,28 @@ class MenuCache {
 
     const isExpired = Date.now() - entry.cachedAt > entry.ttlMs;
     if (isExpired) {
-      this.store.delete(date);
-      console.log(`[menuCache] Cache expired and evicted for date: ${date}`);
+      console.log(`[menuCache] Cache EXPIRED for ${date} (stale data retained for SWR)`);
       return null;
     }
 
     const ageSeconds = Math.round((Date.now() - entry.cachedAt) / 1000);
     console.log(`[menuCache] Cache HIT for ${date} (age: ${ageSeconds}s)`);
+    return entry.data;
+  }
+
+  /**
+   * Returns any stored data for a date — fresh or expired — without evicting it.
+   * Used by the stale-while-revalidate strategy: the GET handler can serve
+   * instantly from stale data while triggering a background re-scrape.
+   *
+   * @param date - "YYYY-MM-DD" cache key
+   * @returns Stored DailyMenuResponse regardless of TTL, or null if never fetched
+   */
+  getStale(date: string): DailyMenuResponse | null {
+    const entry = this.store.get(date);
+    if (!entry) return null;
+    const ageSeconds = Math.round((Date.now() - entry.cachedAt) / 1000);
+    console.log(`[menuCache] Serving STALE data for ${date} (age: ${ageSeconds}s, background refresh triggered)`);
     return entry.data;
   }
 
@@ -88,16 +105,22 @@ class MenuCache {
   }
 
   /**
-   * Evicts all expired entries from the cache.
-   * Called on a periodic interval so entries that are never re-read
-   * don't accumulate indefinitely in memory (#10).
+   * Evicts entries that have exceeded their TTL + a 4-hour grace window.
+   *
+   * WHY a grace window?
+   * get() no longer immediately deletes expired entries so that getStale()
+   * can serve them for the stale-while-revalidate pattern. Without a grace
+   * window, yesterday's menu data would stay in memory indefinitely.
+   * 4 hours is generous — menus don't change mid-day, so stale data from
+   * the same day is always useful. Yesterday's data becomes useless by ~4am.
    */
   sweep(): void {
     const now = Date.now();
+    const GRACE_MS = 4 * 60 * 60 * 1000; // 4 hours
     for (const [date, entry] of this.store) {
-      if (now - entry.cachedAt > entry.ttlMs) {
+      if (now - entry.cachedAt > entry.ttlMs + GRACE_MS) {
         this.store.delete(date);
-        console.log(`[menuCache] Sweep evicted expired entry for date: ${date}`);
+        console.log(`[menuCache] Sweep evicted stale entry for date: ${date}`);
       }
     }
   }
