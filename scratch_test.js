@@ -1,10 +1,6 @@
 import axios from 'axios';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-<<<<<<< HEAD
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
-=======
-const GEMINI_MODEL = 'gemini-3.6-flash';
->>>>>>> f8b19589aa09a46712d84500334a1c29cfaa596e
 
 const url = `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
