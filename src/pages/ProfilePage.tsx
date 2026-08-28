@@ -465,8 +465,8 @@ export default function ProfilePage() {
             </div>
             {[
               { label: "🌅 Breakfast", key: "breakfastTime" as const },
-              { label: "☀️ Lunch",     key: "lunchTime"     as const },
-              { label: "🌙 Dinner",    key: "dinnerTime"    as const },
+              { label: "☀️ Lunch", key: "lunchTime" as const },
+              { label: "🌙 Dinner", key: "dinnerTime" as const },
             ].map(({ label, key }) => (
               <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: "0.82rem", color: "var(--color-text-2)" }}>{label}</span>
@@ -600,7 +600,7 @@ export default function ProfilePage() {
       </div>
 
       <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", marginTop: "1rem" }}>
-        Higgins Helper v0.2.2 · Clark University · Data synced to cloud
+        Higgins Helper v1.0.3 · Clark University · Data synced to cloud
       </p>
     </div>
   );
