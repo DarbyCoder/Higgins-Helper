@@ -4,13 +4,13 @@
   "description": "Clark University PWA daily calorie tracker & AI nutritionist",
   "type": "module",
   "scripts": {
-    "dev:server": "tsx watch server/index.ts",
+    "dev:server": "cross-env NODE_OPTIONS=--max-old-space-size=512 tsx watch server/index.ts",
     "dev:client": "vite",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build:server": "tsc --project tsconfig.server.json",
     "build:client": "tsc && vite build",
     "build": "npm run build:client && npm run build:server",
-    "start": "cross-env NODE_ENV=production node dist/server/index.js",
+    "start": "cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=512 node dist/server/index.js",
     "preview": "vite preview",
     "type-check": "tsc --noEmit"
   },

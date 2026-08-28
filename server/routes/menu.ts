@@ -95,11 +95,31 @@ async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
     return emptyResponse;
   }
 
-  // ── Layer 2: Fetch all location menus in parallel ──
-  // We use Promise.allSettled so one failing location doesn't kill the batch
-  const settledResults = await Promise.allSettled(
-    locationStubs.map((stub) => scrapeLocationMenu(stub))
-  );
+  // ── Layer 2: Fetch location menus with bounded concurrency ──
+  //
+  // WHY NOT Promise.allSettled(all at once)?
+  // Each scrape loads a full Cheerio instance + nutrition JSON blobs into memory.
+  // The Table at Higgins alone can hold 100+ items. Fetching all 6-8 locations
+  // simultaneously spikes Node.js heap past its 256 MB default limit → OOM crash.
+  //
+  // Cap at SCRAPE_CONCURRENCY=3: only 3 Cheerio instances are alive at once,
+  // cutting peak memory by ~60% while keeping the batch fast (~3s total).
+  const SCRAPE_CONCURRENCY = 3;
+  const settledResults: PromiseSettledResult<DiningLocation>[] = [];
+
+  for (let i = 0; i < locationStubs.length; i += SCRAPE_CONCURRENCY) {
+    const batch = locationStubs.slice(i, i + SCRAPE_CONCURRENCY);
+    const batchResults = await Promise.allSettled(
+      batch.map((stub) => scrapeLocationMenu(stub))
+    );
+    settledResults.push(...batchResults);
+
+    // Explicitly yield between batches so V8's garbage collector can reclaim
+    // the Cheerio instances from the completed batch before the next one starts.
+    if (i + SCRAPE_CONCURRENCY < locationStubs.length) {
+      await new Promise((r) => setImmediate(r));
+    }
+  }
 
   const locations: DiningLocation[] = [];
 
