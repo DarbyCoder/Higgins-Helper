@@ -9,17 +9,38 @@ export default defineConfig({
     tailwindcss(),
     react(),
     VitePWA({
-      // Fix #18: Switch from generateSW to injectManifest so our custom sw.js
-      // (which adds push + notificationclick handlers) is used instead of the
-      // default Workbox-generated SW that has no push event support at all.
-      strategies: "injectManifest",
-      srcDir: "public",
-      filename: "sw.js",
+      // generateSW: Workbox auto-generates the precaching SW — no source file
+      // scanning, no swSrc/swDest path conflicts.
+      // Push and notificationclick handlers live in public/sw-handlers.js and
+      // are pulled into the generated SW via importScripts at runtime.
+      strategies: "generateSW",
       registerType: "autoUpdate",
-      injectManifest: {
+      workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg}"],
+        // Load our custom push/notification-click handlers into the generated SW
+        importScripts: ["/sw-handlers.js"],
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\/menu/,
+            handler: "NetworkFirst",
+            options: { cacheName: "api-menu-cache" },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "google-fonts-cache" },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts",
+              expiration: { maxEntries: 20, maxAgeSeconds: 31_536_000 },
+            },
+          },
+        ],
       },
-      manifest: false // We will provide our own manifest.json
+      manifest: false, // We provide our own manifest.json in public/
     })
   ],
   resolve: {
