@@ -6,6 +6,7 @@
  */
 import { useEffect, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
+import { parseTimeToMinutes } from "@/utils/time";
 import { useDateStore, useMenuStore } from "@/stores";
 import type { MenuItem, DiningLocation } from "@/types";
 
@@ -41,10 +42,10 @@ export default function MenuPage() {
 
     return l.meals.some(m => {
       if (!m.startTime || !m.endTime) return false;
-      const [sh, sm] = m.startTime.split(":").map(Number);
-      const [eh, em] = m.endTime.split(":").map(Number);
-      if (isNaN(sh) || isNaN(eh)) return false;
-      return nowMins >= (sh * 60 + sm) && nowMins < (eh * 60 + em);
+      const startMins = parseTimeToMinutes(m.startTime);
+      const endMins   = parseTimeToMinutes(m.endTime);
+      if (startMins === null || endMins === null) return false;
+      return nowMins >= startMins && nowMins < endMins;
     });
   }
 

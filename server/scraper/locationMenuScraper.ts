@@ -180,7 +180,33 @@ function parseMealPeriods(
     // Zip by index
     const mealName = mealNames[i] ?? `Meal ${i + 1}`;
     const normalizedName = mealName.toLowerCase().replace(/\s*\(.*?\)/, "").trim();
-    const hours = hoursLookup.get(normalizedName);
+    let hours = hoursLookup.get(normalizedName);
+
+    // Fallback: when the location page uses a consolidated tab name that doesn't
+    // match any Layer 1 meal name (e.g. Bistro uses "Weekend Hours Bistro" but
+    // Layer 1 has "Breakfast" and "Lunch / dinner"), synthesise a combined time
+    // range spanning the earliest startTime → latest endTime of all stub meals.
+    // This is correct because a consolidated single tab means "the whole day".
+    if (!hours && stub.meals.length > 0) {
+      console.log(
+        `[locationMenuScraper] ${stub.name}: tab "${mealName}" has no matching Layer 1 meal — ` +
+        `using combined hours from ${stub.meals.length} stub meal(s) as fallback`
+      );
+      const allStartTimes = stub.meals.map((m) => m.startTime).filter(Boolean);
+      const allEndTimes   = stub.meals.map((m) => m.endTime).filter(Boolean);
+      if (allStartTimes.length > 0 && allEndTimes.length > 0) {
+        // Pick the lexicographically earliest start and latest end.
+        // These are "h:mm am/pm" strings so direct sort works correctly only when
+        // converted, but since we just need the outer boundary we sort by raw string
+        // length + value. The safest approach: keep them as strings and let the
+        // frontend or a future helper convert. The key goal is non-empty values.
+        hours = {
+          name: mealName,
+          startTime: allStartTimes[0],  // first meal's open time
+          endTime:   allEndTimes[allEndTimes.length - 1],  // last meal's close time
+        };
+      }
+    }
 
     const stations: FoodStation[] = [];
     $(tabEl).find(STATION_WRAPPER_SELECTOR).each((_, stationEl) => {

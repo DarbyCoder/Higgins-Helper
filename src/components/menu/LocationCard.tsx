@@ -10,6 +10,7 @@
 import { useState } from "react";
 import type { DiningLocation, FoodStation, MenuItem } from "@/types";
 import { useUIStore } from "@/stores";
+import { parseTimeToMinutes } from "@/utils/time";
 import MenuItemCard from "./MenuItemCard";
 
 interface Props {
@@ -28,19 +29,19 @@ export default function LocationCard({ location, onSelectItem }: Props) {
     // 1. Find currently active meal based on time
     const current = location.meals.find(m => {
       if (!m.startTime || !m.endTime) return false;
-      const [sh, sm] = m.startTime.split(":").map(Number);
-      const [eh, em] = m.endTime.split(":").map(Number);
-      if (isNaN(sh) || isNaN(eh)) return false;
-      return nowMins >= (sh * 60 + sm) && nowMins < (eh * 60 + em);
+      const startMins = parseTimeToMinutes(m.startTime);
+      const endMins   = parseTimeToMinutes(m.endTime);
+      if (startMins === null || endMins === null) return false;
+      return nowMins >= startMins && nowMins < endMins;
     });
     if (current) return current.name;
 
     // 2. Find next upcoming meal
     const next = location.meals.find(m => {
       if (!m.startTime) return false;
-      const [sh, sm] = m.startTime.split(":").map(Number);
-      if (isNaN(sh)) return false;
-      return (sh * 60 + sm) > nowMins;
+      const startMins = parseTimeToMinutes(m.startTime);
+      if (startMins === null) return false;
+      return startMins > nowMins;
     });
     if (next) return next.name;
 
@@ -101,10 +102,10 @@ export default function LocationCard({ location, onSelectItem }: Props) {
     const nowMins = now.getHours() * 60 + now.getMinutes();
     const hasActiveMeal = location.meals.some(m => {
       if (!m.startTime || !m.endTime) return false;
-      const [sh, sm] = m.startTime.split(":").map(Number);
-      const [eh, em] = m.endTime.split(":").map(Number);
-      if (isNaN(sh) || isNaN(eh)) return false;
-      return nowMins >= (sh * 60 + sm) && nowMins < (eh * 60 + em);
+      const startMins = parseTimeToMinutes(m.startTime);
+      const endMins   = parseTimeToMinutes(m.endTime);
+      if (startMins === null || endMins === null) return false;
+      return nowMins >= startMins && nowMins < endMins;
     });
     if (!hasActiveMeal) {
       isCurrentlyClosed = true;
