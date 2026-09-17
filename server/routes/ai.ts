@@ -4,7 +4,10 @@
  *
  * POST /api/ai/chat
  *   Body: { message: string, context: ChatContext, history: ChatMessage[] }
+ *   Headers: X-Device-Id (client-generated UUID; falls back to IP if absent)
  *   Response: { reply: string }
+ *   Limits: 5 questions/day per device (resets midnight ET, in-memory) plus a
+ *   1-request/5s burst guard per IP. 429 with { error } when exceeded.
  *
  * POST /api/ai/recommend-blurb
  *   Body: { date: "YYYY-MM-DD", mealPeriod: string, items: BlurbItem[], remaining: {...} }
@@ -21,6 +24,7 @@ import {
   type ChatContext,
   type ChatMessage,
 } from "../services/aiNutritionist.js";
+import { getLocalDateString } from "./menu.js";
 
 export const aiRouter = Router();
 
@@ -30,15 +34,57 @@ interface ChatRequestBody {
   history: ChatMessage[];
 }
 
-// ── Rate Limiter (#19) ────────────────────────────────────────────────────────
-// Max 20 requests per 10 minutes per IP to prevent Gemini API abuse.
-const chatRateLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 20,
+// ── Burst Guard (#19) ─────────────────────────────────────────────────────────
+// Stops double-submits and scripted hammering; the daily limit below is the
+// real usage cap.
+const chatBurstLimiter = rateLimit({
+  windowMs: 5_000,
+  max: 1,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many requests. Please wait a few minutes before trying again." },
+  message: { error: "Please wait a few seconds before sending another question." },
 });
+
+// ── Daily Question Limit ──────────────────────────────────────────────────────
+// 5 questions per device per day (America/New_York). Keyed on the client's
+// X-Device-Id header since the server has no auth; falls back to IP. In-memory,
+// so counts reset on redeploy. Counts every request that reaches Gemini,
+// regardless of whether the call succeeds.
+const DAILY_QUESTION_LIMIT = 5;
+const DEVICE_ID_MAX_LENGTH = 128;
+const dailyQuestionCounts = new Map<string, { count: number; day: string }>();
+
+setInterval(() => {
+  const today = getLocalDateString();
+  for (const [key, entry] of dailyQuestionCounts) {
+    if (entry.day !== today) dailyQuestionCounts.delete(key);
+  }
+}, 60 * 60 * 1000).unref();
+
+function dailyQuestionLimiter(req: Request, res: Response, next: NextFunction): void {
+  const deviceId = req.get("X-Device-Id")?.trim();
+  const key =
+    deviceId && deviceId.length <= DEVICE_ID_MAX_LENGTH
+      ? `device:${deviceId}`
+      : `ip:${req.ip ?? "unknown"}`;
+
+  const today = getLocalDateString();
+  let entry = dailyQuestionCounts.get(key);
+  if (!entry || entry.day !== today) {
+    entry = { count: 0, day: today };
+    dailyQuestionCounts.set(key, entry);
+  }
+
+  if (entry.count >= DAILY_QUESTION_LIMIT) {
+    res.status(429).json({
+      error: `You've hit today's limit of ${DAILY_QUESTION_LIMIT} AI Nutritionist questions. Try again after midnight ET.`,
+    });
+    return;
+  }
+
+  entry.count++;
+  next();
+}
 
 // ── Type guard helpers ────────────────────────────────────────────────────────
 
@@ -96,8 +142,9 @@ function validateChatRequest(req: Request, res: Response, next: NextFunction): v
 
 aiRouter.post(
   "/chat",
-  chatRateLimiter,
+  chatBurstLimiter,
   validateChatRequest,
+  dailyQuestionLimiter,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { message, context, history } = req.body as ChatRequestBody;
 

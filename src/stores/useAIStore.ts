@@ -30,11 +30,32 @@ interface AIChatRequestBody {
   history: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
+const DEVICE_ID_KEY = "higgins-device-id";
+let memoryDeviceId: string | null = null;
+
+/**
+ * Stable per-browser ID used by the server's daily question limit. Persisted
+ * in localStorage; if storage is unavailable, reused for the page session.
+ */
+function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = uuidv4();
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    memoryDeviceId ??= uuidv4();
+    return memoryDeviceId;
+  }
+}
+
 async function sendChatMessage(body: AIChatRequestBody): Promise<string> {
   // Use relative URL — routes through Vite proxy in dev, same-origin in prod
   const response = await fetch("/api/ai/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Device-Id": getDeviceId() },
     body: JSON.stringify(body),
   });
 
