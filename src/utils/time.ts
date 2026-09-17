@@ -7,6 +7,7 @@
  * those strings to minutes-since-midnight so they can be compared
  * against the current wall-clock time.
  */
+import type { MealSlot } from "@/types";
 
 /**
  * Parses a 12-hour AM/PM time string into total minutes since midnight.
@@ -60,4 +61,49 @@ export function isNowBetween(startTime: string, endTime: string): boolean {
   const nowMins = now.getHours() * 60 + now.getMinutes();
 
   return nowMins >= startMins && nowMins < endMins;
+}
+
+// ─── Meal period helpers ──────────────────────────────────────────────────────
+
+/** Minutes since local midnight for the given moment. */
+function minutesOfDay(now: Date): number {
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+/** Returns the meal period open at `now`, or undefined if none is. */
+export function findActiveMealPeriod<T extends { startTime: string; endTime: string }>(
+  meals: T[],
+  now: Date = new Date()
+): T | undefined {
+  const nowMins = minutesOfDay(now);
+  return meals.find((m) => {
+    const start = parseTimeToMinutes(m.startTime);
+    const end   = parseTimeToMinutes(m.endTime);
+    if (start === null || end === null) return false;
+    return nowMins >= start && nowMins < end;
+  });
+}
+
+/** Returns the next meal period that starts after `now`, or undefined. */
+export function findNextMealPeriod<T extends { startTime: string }>(
+  meals: T[],
+  now: Date = new Date()
+): T | undefined {
+  const nowMins = minutesOfDay(now);
+  return meals
+    .map((m) => ({ m, start: parseTimeToMinutes(m.startTime) }))
+    .filter((x): x is { m: T; start: number } => x.start !== null && x.start > nowMins)
+    .sort((a, b) => a.start - b.start)[0]?.m;
+}
+
+/**
+ * Normalizes a scraped meal period name ("Breakfast", "Brunch", "Late Lunch",
+ * "Dinner", …) to a log MealSlot. Anything unrecognized becomes "snack".
+ */
+export function mapMealPeriodNameToSlot(name: string): MealSlot {
+  const n = (name ?? "").toLowerCase();
+  if (n.includes("breakfast")) return "breakfast";
+  if (n.includes("brunch") || n.includes("lunch")) return "lunch";
+  if (n.includes("dinner") || n.includes("supper")) return "dinner";
+  return "snack";
 }

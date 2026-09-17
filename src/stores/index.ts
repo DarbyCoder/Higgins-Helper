@@ -17,3 +17,4 @@ export { useAuthStore } from "./useAuthStore.js";
 export { useWaterStore } from "./useWaterStore.js";
 
 
+export { useRecommendationStore } from "./useRecommendationStore.js";

@@ -1,13 +1,14 @@
 /**
  * @file src/pages/DashboardPage.tsx
  * @description The main "Today" dashboard page. Shows the calorie ring,
- * macro breakdown, meal summary grid, streak, water tracker,
+ * macro breakdown, recommended items, meal summary grid, streak, water tracker,
  * weekly chart, dining hours, and a quick-action to the menu.
  */
 import { useNavigate } from "react-router-dom";
 import { useDateStore, useFoodLogStore, useUserStore } from "@/stores";
 import DailyOverview from "@/components/dashboard/DailyOverview";
 import MealBreakdown from "@/components/dashboard/MealBreakdown";
+import RecommendedMeal from "@/components/dashboard/RecommendedMeal";
 import StreakCounter from "@/components/dashboard/StreakCounter";
 import DatePicker from "@/components/menu/DatePicker";
 
@@ -49,6 +50,11 @@ export default function DashboardPage() {
       {/* ── Main calorie card ── */}
       <div className="mb-4">
         <DailyOverview totals={totals} targets={macroTargets} />
+      </div>
+
+      {/* ── Recommended items from the open Higgins meal ── */}
+      <div className="mb-4">
+        <RecommendedMeal totals={totals} targets={macroTargets} entries={entries} />
       </div>
 
       {/* ── Meal breakdown grid ── */}

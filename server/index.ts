@@ -24,7 +24,7 @@ import { aiRouter } from "./routes/ai.js";
 if (!process.env.GEMINI_API_KEY) {
   console.warn(
     "[server] WARNING: GEMINI_API_KEY is not set. " +
-    "The /api/ai/chat endpoint will return errors until it is added to .env."
+    "The /api/ai/chat endpoint will return errors (and dashboard AI blurbs are omitted) until it is added to .env."
   );
 }
 

@@ -11,6 +11,7 @@ import { useState } from "react";
 import type { DiningLocation, FoodStation, MenuItem } from "@/types";
 import { useUIStore } from "@/stores";
 import { parseTimeToMinutes } from "@/utils/time";
+import { filterByDietary } from "@/utils/dietary";
 import MenuItemCard from "./MenuItemCard";
 
 interface Props {
@@ -72,13 +73,7 @@ export default function LocationCard({ location, onSelectItem }: Props) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((i) => (i.name ?? "").toLowerCase().includes(q));
     }
-    if (activeDietaryFilters.length > 0) {
-      filtered = filtered.filter((i) =>
-        // Guard: attributes may be undefined if server returned malformed JSON
-        activeDietaryFilters.every((f) => (i.attributes ?? []).some((a) => a.icon === f))
-      );
-    }
-    return filtered;
+    return filterByDietary(filtered, activeDietaryFilters);
   }
 
   function toggleStation(id: string) {
