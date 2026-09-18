@@ -31,6 +31,7 @@ export function useFirestoreSync() {
   const uid = useAuthStore((s) => s.user?.uid);
 
   const hydrateUserStore    = useUserStore((s) => s.hydrateFromFirestore);
+  const setProfileStatus    = useUserStore((s) => s.setProfileStatus);
   const hydrateFoodLogStore = useFoodLogStore((s) => s.hydrateFromFirestore);
   const clearChat           = useAIStore((s) => s.clearChat);
   const showToast           = useUIStore((s) => s.showToast);
@@ -61,6 +62,11 @@ export function useFirestoreSync() {
         if (profileData) hydrateUserStore(profileData);
         hydrateFoodLogStore(recentLogs);
 
+        // Firestore has now answered, so AuthGate can safely decide between
+        // the app and the onboarding wizard. Also reached when profileData is
+        // null, which is the genuine "needs onboarding" case.
+        setProfileStatus("ready");
+
         // 2. Real-time listener: user profile
         const unsubProfile = onUserProfileSnapshot(uid!, (data) => {
           if (data) hydrateUserStore(data);
@@ -80,6 +86,10 @@ export function useFirestoreSync() {
         // #1: Surface sync failures to the user instead of silently swallowing them
         if (!cancelled) {
           console.error("[useFirestoreSync] Bootstrap failed:", err);
+          // Deliberately NOT "ready": a failed read must not be mistaken for
+          // "this user has no profile", which would trigger the onboarding
+          // wizard and overwrite real data.
+          setProfileStatus("error");
           showToast("Could not sync your data. Check your connection and reload.", "error");
         }
       }
@@ -90,10 +100,12 @@ export function useFirestoreSync() {
     return () => {
       cancelled = true;
       localWritePending.current = false;
+      // Next user (or the next sign-in) must re-check Firestore from scratch.
+      setProfileStatus("checking");
       unsubs.current.forEach((fn) => fn());
       unsubs.current = [];
       // Clear ephemeral chat when user changes / signs out
       clearChat();
     };
-  }, [uid, hydrateUserStore, hydrateFoodLogStore, clearChat, showToast]);
+  }, [uid, hydrateUserStore, hydrateFoodLogStore, setProfileStatus, clearChat, showToast]);
 }

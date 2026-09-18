@@ -38,9 +38,6 @@ function RootLayout() {
     pruneOldLogs();
   }, [applyTheme, pruneOldLogs]);
 
-  // Hydrate all stores from Firestore and set up real-time listeners
-  useFirestoreSync();
-
   // Fix #17 & #22: Schedule meal reminders and check for unlogged meals
   useMealReminders();
 
@@ -68,6 +65,10 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
+  // Hydrate all stores from Firestore and set up real-time listeners.
+  // Must sit outside AuthGate: AuthGate waits on the profile this loads.
+  useFirestoreSync();
+
   return (
     <AuthProvider>
       <AuthGate>

@@ -138,6 +138,19 @@ interface UserState {
   activeOverrideIndex: number;
 
   /**
+   * Whether the authoritative profile has been read from Firestore yet.
+   *
+   * userProfile alone cannot answer "does this user need onboarding?", because
+   * it is null both before the Firestore read completes and when the user
+   * genuinely has no profile. AuthGate needs to tell those apart — otherwise a
+   * signed-in user with an empty localStorage cache gets the onboarding wizard
+   * and overwrites the profile already stored in Firestore.
+   *
+   * Not persisted: it describes this session, not the user.
+   */
+  profileStatus: "checking" | "ready" | "error";
+
+  /**
    * Saves a user profile and recomputes macro targets (unless manually overridden).
    * Also persists to Firestore if the user is signed in.
    */
@@ -168,6 +181,9 @@ interface UserState {
    * Called by useFirestoreSync after login. Does NOT trigger a Firestore write.
    */
   hydrateFromFirestore: (data: FirestoreUserProfile) => void;
+
+  /** Records how the Firestore profile read went. Called by useFirestoreSync. */
+  setProfileStatus: (status: "checking" | "ready" | "error") => void;
 }
 
 // ─── Helper: persist to Firestore ────────────────────────────────────────────
@@ -201,6 +217,7 @@ export const useUserStore = create<UserState>()(
       macroTargetsManuallySet: false,
       overridePresets:         [DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS],
       activeOverrideIndex:     0,
+      profileStatus:           "checking",
 
       setUserProfile: (profile) => {
         const shouldRecalculate = !get().macroTargetsManuallySet;
@@ -287,6 +304,8 @@ export const useUserStore = create<UserState>()(
           activeOverrideIndex:     (data as any).activeOverrideIndex ?? 0,
         });
       },
+
+      setProfileStatus: (status) => set({ profileStatus: status }),
     }),
 
     {

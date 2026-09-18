@@ -48,6 +48,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Fail loudly if 5173 is taken instead of silently drifting to 5174+.
+    // A drifted port leaves the app talking to a stale server on the real one,
+    // which is far more confusing than a startup error.
+    strictPort: true,
     host: true,
     proxy: {
       "/api": { target: "http://localhost:3001", changeOrigin: true },
