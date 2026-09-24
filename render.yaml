@@ -16,6 +16,8 @@ services:
     # --include=dev: TypeScript, Vite and cross-env are devDependencies, and
     # npm skips those when NODE_ENV=production is set (it is, below).
     buildCommand: npm ci --include=dev && npm run build
+    # `npm start` caps the V8 heap at 256 MB, well under the free instance's
+    # 512 MB, so garbage is collected before the container hits its limit.
     startCommand: npm start
     healthCheckPath: /health
 

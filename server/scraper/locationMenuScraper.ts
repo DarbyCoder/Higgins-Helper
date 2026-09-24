@@ -276,6 +276,9 @@ async function withRetry<T>(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+/** Matches a whole inline <svg>…</svg> element (lazy, so each icon separately). */
+const INLINE_SVG_REGEX = /<svg\b[\s\S]*?<\/svg>/gi;
+
 export async function scrapeLocationMenu(
   stub: LocationStub
 ): Promise<DiningLocation> {
@@ -300,6 +303,13 @@ export async function scrapeLocationMenu(
       `[locationMenuScraper] HTTP ${status} fetching ${stub.url}: ${msg}`
     );
   }
+
+  // Location pages embed an inline SVG icon in every menu item — ~11 MB of the
+  // ~13 MB Higgins page. Nothing here reads them (dietary info comes from CSS
+  // classes and the nutrition JSON), but parsing them into a DOM pushed a single
+  // scrape past 600 MB, over the 512 MB limit on small hosts like Render's free
+  // tier. Strip them before parsing. Reassigning drops the original string.
+  html = html.replace(INLINE_SVG_REGEX, "");
 
   const $ = cheerio.load(html);
   const meals = parseMealPeriods($, stub);
