@@ -52,7 +52,6 @@ export default function ProfilePage() {
     activityLevel: userProfile?.activityLevel ?? "light",
     goal: userProfile?.goal ?? "maintain",
     dietaryRestrictions: userProfile?.dietaryRestrictions ?? [],
-    wantsAIAdvisor: userProfile?.wantsAIAdvisor ?? true,
   });
   const [saved, setSaved] = useState(false);
 
@@ -522,45 +521,6 @@ export default function ProfilePage() {
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "0.7rem",
             }}>{isDark ? "🌙" : "☀️"}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── App Features ── */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
-        <div className="section-title">App Features</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
-              AI Nutritionist
-            </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              Personalized food advice using Gemini
-            </div>
-          </div>
-          {/* Toggle switch */}
-          <button
-            role="switch"
-            aria-checked={form.wantsAIAdvisor}
-            onClick={() => setForm((f) => ({ ...f, wantsAIAdvisor: !f.wantsAIAdvisor }))}
-            style={{
-              width: 48, height: 26, borderRadius: 999, border: "none",
-              background: form.wantsAIAdvisor ? "var(--color-primary)" : "var(--color-surface-3)",
-              position: "relative", cursor: "pointer",
-              transition: "background 0.25s", padding: 0,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-              flexShrink: 0,
-            }}
-            aria-label="Toggle AI Advisor"
-          >
-            <span style={{
-              position: "absolute",
-              top: 3, left: form.wantsAIAdvisor ? 25 : 3,
-              width: 20, height: 20, borderRadius: "50%",
-              background: form.wantsAIAdvisor ? "#fff" : "var(--color-text-3)",
-              transition: "left 0.22s cubic-bezier(0.34,1.56,0.64,1), background 0.22s",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-            }} />
           </button>
         </div>
       </div>

@@ -75,11 +75,6 @@ export default function LoginPage() {
       title: "Track Your Macros",
       text: "Log your meals with a single tap and easily hit your daily protein and calorie goals.",
     },
-    {
-      isAI: true,
-      title: "AI Nutritionist",
-      text: "Get personalized food advice from our smart assistant, powered by Gemini.",
-    },
   ];
 
   return (
@@ -122,20 +117,10 @@ export default function LoginPage() {
         <div style={{ zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 400, flex: 1, justifyContent: "center" }}>
           
           <div key={step} className="animate-slide" style={{ textAlign: "center", width: "100%" }}>
-            {WALKTHROUGH_SLIDES[step].isAI ? (
-              <div style={{
-                width: 72, height: 72, borderRadius: "var(--radius-md)", margin: "0 auto 2rem",
-                background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "2rem", fontWeight: 800, color: "#fff",
-                boxShadow: "0 4px 16px rgba(196, 30, 58, 0.35)"
-              }}>AI</div>
-            ) : (
-              <div style={{ fontSize: "4.5rem", marginBottom: "1.5rem" }}>
-                {WALKTHROUGH_SLIDES[step].emoji}
-              </div>
-            )}
-            
+            <div style={{ fontSize: "4.5rem", marginBottom: "1.5rem" }}>
+              {WALKTHROUGH_SLIDES[step].emoji}
+            </div>
+
             <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "1rem", color: "var(--color-text-1)" }}>
               {WALKTHROUGH_SLIDES[step].title}
             </h1>

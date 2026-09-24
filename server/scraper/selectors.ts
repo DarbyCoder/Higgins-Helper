@@ -30,6 +30,15 @@ export const buildMenuHoursUrl = (date: string): string =>
 export const buildLocationUrl = (slug: string, date: string): string =>
   `${BASE_URL}/locations/${slug}/?date=${date}`;
 
+/**
+ * The only dining locations the app supports. Every other location on the
+ * site (e.g. The Den, Cougar Cafe) is dropped before its menu is fetched.
+ */
+export const SUPPORTED_LOCATION_SLUGS: ReadonlySet<string> = new Set([
+  "the-table-at-higgins",
+  "the-bistro",
+]);
+
 // ─── Layer 1 Selectors: /menu-hours/ Page ────────────────────────────────────
 
 /**

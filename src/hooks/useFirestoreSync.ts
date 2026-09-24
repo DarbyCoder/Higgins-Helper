@@ -17,7 +17,6 @@ import type { Unsubscribe }  from "firebase/firestore";
 import { useAuthStore }      from "@/stores/useAuthStore";
 import { useUserStore }      from "@/stores/useUserStore";
 import { useFoodLogStore }   from "@/stores/useFoodLogStore";
-import { useAIStore }        from "@/stores/useAIStore";
 import { useUIStore }        from "@/stores/useUIStore";
 import {
   getUserProfile,
@@ -33,7 +32,6 @@ export function useFirestoreSync() {
   const hydrateUserStore    = useUserStore((s) => s.hydrateFromFirestore);
   const setProfileStatus    = useUserStore((s) => s.setProfileStatus);
   const hydrateFoodLogStore = useFoodLogStore((s) => s.hydrateFromFirestore);
-  const clearChat           = useAIStore((s) => s.clearChat);
   const showToast           = useUIStore((s) => s.showToast);
 
   // Track unsubscribe functions so we can clean them up
@@ -104,8 +102,6 @@ export function useFirestoreSync() {
       setProfileStatus("checking");
       unsubs.current.forEach((fn) => fn());
       unsubs.current = [];
-      // Clear ephemeral chat when user changes / signs out
-      clearChat();
     };
-  }, [uid, hydrateUserStore, hydrateFoodLogStore, setProfileStatus, clearChat, showToast]);
+  }, [uid, hydrateUserStore, hydrateFoodLogStore, setProfileStatus, showToast]);
 }

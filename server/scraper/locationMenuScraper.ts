@@ -136,8 +136,8 @@ function parseMealPeriods(
     stub.meals.map((m) => [m.name.toLowerCase().replace(/\s*\(.*?\)/, "").trim(), m])
   );
 
-  // Fix #11: Fallback for retail/single-meal locations (e.g. Cougar Cafe, The Den)
-  // that render .menu-station elements directly on the page without .c-tab wrappers.
+  // Fix #11: Fallback for retail/single-meal layouts that render .menu-station
+  // elements directly on the page without .c-tab wrappers.
   // When no tabs are found but stations exist, collect them under an "All Day" period.
   if (tabEls.length === 0) {
     const allStations: FoodStation[] = [];

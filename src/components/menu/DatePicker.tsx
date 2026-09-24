@@ -2,9 +2,8 @@
  * @file src/components/menu/DatePicker.tsx
  * @description A swipeable horizontal date strip for navigating between days.
  * Shows a 7-day window centered on the selected date with prev/next arrows.
- * "Today" highlighting respects the active date simulation override.
  */
-import { useDateStore, offsetDate } from "@/stores";
+import { useDateStore, offsetDate, toLocalDateString } from "@/stores";
 
 function formatDayLabel(dateStr: string): { dow: string; num: string } {
   const d = new Date(`${dateStr}T12:00:00`);
@@ -13,8 +12,8 @@ function formatDayLabel(dateStr: string): { dow: string; num: string } {
 }
 
 export default function DatePicker() {
-  const { selectedDate, setSelectedDate, goToNextDay, goToPrevDay, getEffectiveToday } = useDateStore();
-  const today = getEffectiveToday(); // respects date simulation
+  const { selectedDate, setSelectedDate, goToNextDay, goToPrevDay } = useDateStore();
+  const today = toLocalDateString();
 
   // Build a 7-day window: 3 before, selected, 3 after
   const days = Array.from({ length: 7 }, (_, i) => offsetDate(selectedDate, i - 3));

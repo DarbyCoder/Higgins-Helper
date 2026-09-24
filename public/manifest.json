@@ -1,7 +1,7 @@
 {
   "name": "Higgins Helper",
   "short_name": "Higgins Helper",
-  "description": "Clark University daily calorie tracker and AI nutritionist",
+  "description": "Clark University daily calorie tracker for Higgins and The Bistro",
   "start_url": "/",
   "id": "/",
   "display": "standalone",
