@@ -4,26 +4,23 @@
  *
  * Deterministically picks up to 3 items from Higgins's currently-open meal
  * period that fit the user's remaining macros (see utils/mealRecommendation),
- * each with a one-tap "+" quick log. An optional Gemini one-liner is layered on
- * top and silently omitted if unavailable.
+ * each with a one-tap "+" quick log.
  *
- * Only shown when the dashboard is viewing (effective) today, since
+ * Only shown when the dashboard is viewing today, since
  * recommendations depend on what's open right now.
  */
 import { useEffect, useMemo, useState } from "react";
 import type { LoggedFoodEntry, MacroTargets, MacroTotals, MenuItem } from "@/types";
 import {
-  useAuthStore,
+  toLocalDateString,
   useDateStore,
   useFoodLogStore,
   useMenuStore,
-  useRecommendationStore,
   useUIStore,
   useUserStore,
 } from "@/stores";
 import { recommendMeals, type RecommendationReason } from "@/utils/mealRecommendation";
 import { findNextMealPeriod, mapMealPeriodNameToSlot } from "@/utils/time";
-import type { BlurbRequestBody } from "@/stores/useRecommendationStore";
 
 interface Props {
   totals: MacroTotals;
@@ -42,17 +39,13 @@ const EMPTY_RESTRICTIONS: string[] = [];
 
 export default function RecommendedMeal({ totals, targets, entries }: Props) {
   const selectedDate = useDateStore((s) => s.selectedDate);
-  const today        = useDateStore((s) => s.getEffectiveToday());
+  const today        = toLocalDateString();
   const menu         = useMenuStore((s) => s.menuCache[today]);
   const isLoading    = useMenuStore((s) => s.isLoading);
   const fetchMenu    = useMenuStore((s) => s.fetchMenu);
   const restrictions = useUserStore((s) => s.userProfile?.dietaryRestrictions ?? EMPTY_RESTRICTIONS);
-  const wantsAI      = useUserStore((s) => s.userProfile?.wantsAIAdvisor ?? true);
-  const uid          = useAuthStore((s) => s.user?.uid ?? "anon");
   const addFoodEntry = useFoodLogStore((s) => s.addFoodEntry);
   const showToast    = useUIStore((s) => s.showToast);
-  const blurbs       = useRecommendationStore((s) => s.blurbs);
-  const loadBlurb    = useRecommendationStore((s) => s.loadBlurb);
 
   const isToday = selectedDate === today;
 
@@ -72,38 +65,6 @@ export default function RecommendedMeal({ totals, targets, entries }: Props) {
     [menu, totals, targets, entries, restrictions, now]
   );
   const { location, activeMeal, items, filteredOut } = result;
-
-  // ── Optional AI blurb ──
-  const blurbRequest = useMemo<BlurbRequestBody | null>(() => {
-    if (!activeMeal || items.length === 0) return null;
-    // Round remaining macros so small logging changes reuse the cached blurb
-    return {
-      date: today,
-      mealPeriod: activeMeal.name,
-      items: items.map(({ item }) => ({
-        name:       item.name,
-        calories:   Math.round(item.calories || 0),
-        protein:    Math.round(item.protein || 0),
-        totalCarbs: Math.round(item.totalCarbs || 0),
-        totalFat:   Math.round(item.totalFat || 0),
-        sodium:     Math.round(item.sodium || 0),
-        fiber:      Math.round(item.fiber || 0),
-      })),
-      remaining: {
-        calories: Math.round((targets.calories - totals.calories) / 50) * 50,
-        protein:  Math.max(0, Math.round((targets.protein - totals.protein) / 5) * 5),
-        sodium:   Math.max(0, Math.round((targets.sodium - totals.sodium) / 100) * 100),
-        fiber:    Math.max(0, Math.round(targets.fiber - totals.fiber)),
-      },
-    };
-  }, [activeMeal, items, today, targets, totals]);
-
-  const blurbKey = blurbRequest ? `${today}|${uid}|${JSON.stringify(blurbRequest)}` : null;
-  const blurb    = blurbKey ? blurbs[blurbKey] : undefined;
-
-  useEffect(() => {
-    if (wantsAI && blurbKey && blurbRequest) loadBlurb(blurbKey, blurbRequest);
-  }, [wantsAI, blurbKey, blurbRequest, loadBlurb]);
 
   // ── Quick log feedback ──
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
@@ -149,25 +110,18 @@ export default function RecommendedMeal({ totals, targets, entries }: Props) {
     );
   } else {
     body = (
-      <>
-        {blurb && (
-          <p style={{ margin: "0 0 0.6rem", fontSize: "0.78rem", color: "var(--color-text-2)", lineHeight: 1.45 }}>
-            ✨ {blurb}
-          </p>
-        )}
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-          {items.map(({ item, stationName, reason }) => (
-            <RecommendedRow
-              key={item.id}
-              item={item}
-              stationName={stationName}
-              reason={REASON_LABELS[reason]}
-              justAdded={justAddedId === item.id}
-              onAdd={() => quickLog(item)}
-            />
-          ))}
-        </div>
-      </>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+        {items.map(({ item, stationName, reason }) => (
+          <RecommendedRow
+            key={item.id}
+            item={item}
+            stationName={stationName}
+            reason={REASON_LABELS[reason]}
+            justAdded={justAddedId === item.id}
+            onAdd={() => quickLog(item)}
+          />
+        ))}
+      </div>
     );
   }
 

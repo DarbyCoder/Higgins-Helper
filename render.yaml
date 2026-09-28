@@ -1,0 +1,43 @@
+# Render Blueprint for Higgins Helper.
+#
+# One free web service: Express serves the API (/api/menu) and the built
+# React PWA from dist/. User data lives in Firebase (Auth + Firestore), not on
+# this service, so Render's ephemeral disk loses nothing on redeploy.
+#
+# See .env.example for what each variable does.
+
+services:
+  - type: web
+    name: higgins-helper
+    runtime: node
+    plan: free
+    region: virginia # closest Render region to Worcester, MA
+
+    # --include=dev: TypeScript, Vite and cross-env are devDependencies, and
+    # npm skips those when NODE_ENV=production is set (it is, below).
+    buildCommand: npm ci --include=dev && npm run build
+    # `npm start` caps the V8 heap at 256 MB, well under the free instance's
+    # 512 MB, so garbage is collected before the container hits its limit.
+    startCommand: npm start
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Firebase web config. Vite inlines these into the frontend at BUILD
+      # time, so changing one requires a new deploy, not just a restart.
+      # sync: false → the dashboard asks for each value when the Blueprint is
+      # first created. Add or edit them later under the service's Environment.
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false

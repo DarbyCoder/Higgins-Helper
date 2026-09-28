@@ -18,7 +18,6 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "./firebaseConfig";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useDevAutoSignIn } from "@/hooks/useDevAutoSignIn";
 
 // ─── Context Shape ────────────────────────────────────────────────────────────
 
@@ -48,9 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     return unsubscribe;
   }, [setUser, setError]);
-
-  // Sandbox only: sign into the seeded emulator account (no-op everywhere else)
-  useDevAutoSignIn();
 
   // ── Auth Actions ──────────────────────────────────────────────────────────
 

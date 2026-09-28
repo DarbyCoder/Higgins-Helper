@@ -9,7 +9,7 @@ import { useUserStore } from "@/stores/useUserStore";
 import { useAuth } from "@/firebase/AuthProvider";
 import type { UserProfile, ActivityLevel, WeightGoal } from "@/types";
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 8;
 
 const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; description: string }[] = [
   { value: "sedentary",   label: "Sedentary",    description: "Mostly sitting — desk job, classes, little to no intentional exercise" },
@@ -45,7 +45,6 @@ export default function OnboardingPage() {
   const [activityLevel, setActivityLevel] = useState<ActivityLevel | null>(null);
   const [goal,         setGoal]         = useState<WeightGoal | null>(null);
   const [dietary,      setDietary]      = useState<string[]>([]);
-  const [wantsAI,      setWantsAI]      = useState(true);
 
   function toggleDietary(pref: string) {
     setDietary((prev) =>
@@ -63,7 +62,6 @@ export default function OnboardingPage() {
       case 6: return activityLevel !== null;
       case 7: return goal !== null;
       case 8: return true;
-      case 9: return true;
       default: return false;
     }
   }
@@ -89,7 +87,6 @@ export default function OnboardingPage() {
       activityLevel:       activityLevel ?? "moderate",
       goal:                goal ?? "maintain",
       dietaryRestrictions: dietary,
-      wantsAIAdvisor:      wantsAI,
     };
     setUserProfile(profile);
     await new Promise((r) => setTimeout(r, 600));
@@ -381,45 +378,7 @@ export default function OnboardingPage() {
                   );
                 })}
               </div>
-            </div>
-          )}
-
-          {/* ── Step 9: AI Nutritionist ──────────────────────────── */}
-          {step === 9 && (
-            <div>
-              <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-                <div style={{
-                  width: 64, height: 64, borderRadius: "var(--radius-md)", margin: "0 auto 1.5rem",
-                  background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "1.75rem", fontWeight: 800, color: "#fff",
-                  boxShadow: "0 4px 12px rgba(196, 30, 58, 0.3)"
-                }}>AI</div>
-                <h2 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "0.5rem" }}>AI Nutritionist</h2>
-                <p style={{ color: "var(--color-text-3)", fontSize: "0.95rem", lineHeight: 1.5 }}>
-                  Would you like our personalized AI advisor to help you choose the best foods from the dining hall?
-                </p>
-              </div>
-              
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.25rem", background: "var(--color-surface-2)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)" }}>
-                <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>Enable AI Advisor</span>
-                <button
-                  onClick={() => setWantsAI(!wantsAI)}
-                  style={{
-                    width: 60, height: 34, borderRadius: 17,
-                    background: wantsAI ? "var(--color-primary)" : "var(--color-text-3)",
-                    border: "none", position: "relative", cursor: "pointer",
-                    transition: "background 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)"
-                  }}
-                >
-                  <div style={{
-                    width: 28, height: 28, borderRadius: "50%", background: "#fff",
-                    position: "absolute", top: 3, left: wantsAI ? 29 : 3,
-                    transition: "left 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)", boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-                  }} />
-                </button>
-              </div>
-              <p style={{ fontSize: "0.8rem", color: "var(--color-text-3)", textAlign: "center", marginTop: "1.5rem" }}>
+              <p style={{ fontSize: "0.8rem", color: "var(--color-text-3)", textAlign: "center" }}>
                 You can adjust all of your preferences later in your Profile.
               </p>
             </div>
