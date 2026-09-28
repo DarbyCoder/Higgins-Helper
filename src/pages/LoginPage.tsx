@@ -11,7 +11,7 @@ export default function LoginPage() {
   const { signIn, signUp, signInWithGoogle, error } = useAuth();
 
   const [step, setStep]                 = useState(0);
-  const [mode, setMode]                 = useState<"signin" | "signup">("signin");
+  const [mode, setMode]                 = useState<"signin" | "signup">("signup");
   const [name, setName]                 = useState("");
   const [email, setEmail]               = useState("");
   const [password, setPassword]         = useState("");
