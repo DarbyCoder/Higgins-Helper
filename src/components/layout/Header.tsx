@@ -5,7 +5,8 @@
  * Higgins Helper "H" logo mark.
  */
 import { useLocation, Link } from "react-router-dom";
-import { useDateStore, useUserStore } from "@/stores";
+import { useDateStore, useUIStore, useUserStore } from "@/stores";
+import type { MenuArea } from "@/stores/useUIStore";
 import { useAuth } from "@/firebase/AuthProvider";
 
 
@@ -28,6 +29,7 @@ function getTimeGreeting(): string {
 function getHeaderContent(
   pathname: string,
   selectedDate: string,
+  menuArea: MenuArea,
   userName?: string
 ): { subtitle: string; title: string } {
   const today = new Date().toISOString().slice(0, 10);
@@ -41,6 +43,13 @@ function getHeaderContent(
       return {
         subtitle: isToday ? greeting : formatDisplayDate(selectedDate),
         title: isToday ? "Today" : formatDisplayDate(selectedDate),
+      };
+
+    // ── Menu (Worcester side) ──
+    case pathname === "/menu" && menuArea === "worcester":
+      return {
+        subtitle: "Worcester",
+        title: "Nearby Restaurants",
       };
 
     // ── Menu ──
@@ -90,12 +99,13 @@ export default function Header() {
   const location = useLocation();
   const selectedDate = useDateStore((s) => s.selectedDate);
   const profileName = useUserStore((s) => s.userProfile?.name);
+  const menuArea = useUIStore((s) => s.menuArea);
   const { user } = useAuth();
 
   // Prefer the Firebase auth displayName (always current), fall back to stored profile name
   const userName = user?.displayName ?? profileName;
 
-  const { subtitle, title } = getHeaderContent(location.pathname, selectedDate, userName);
+  const { subtitle, title } = getHeaderContent(location.pathname, selectedDate, menuArea, userName);
 
 
   return (

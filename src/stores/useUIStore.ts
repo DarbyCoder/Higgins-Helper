@@ -3,6 +3,7 @@
  * @description Zustand slice for ephemeral UI state.
  *
  * Manages:
+ *   - Menu tab area (Clark dining vs. Worcester restaurants)
  *   - Active dining location selection
  *   - Active meal period tab
  *   - Menu search/filter query
@@ -22,9 +23,15 @@ export interface Toast {
   type: "error" | "info" | "success";
 }
 
+/** Which side of the Menu tab is showing. */
+export type MenuArea = "clark" | "worcester";
+
 // ─── Store Shape ──────────────────────────────────────────────────────────────
 
 interface UIState {
+  /** Menu tab side: Higgins dining ("clark") or nearby restaurants ("worcester"). */
+  menuArea: MenuArea;
+
   /** Slug of the currently expanded dining location, or null if none. */
   activeLocationSlug: string | null;
 
@@ -45,6 +52,7 @@ interface UIState {
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
+  setMenuArea: (area: MenuArea) => void;
   setActiveLocation: (slug: string | null) => void;
   setActiveMealPeriod: (meal: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -74,12 +82,14 @@ interface UIState {
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useUIStore = create<UIState>((set, get) => ({
+  menuArea: "clark",
   activeLocationSlug: null,
   activeMealPeriod: null,
   searchQuery: "",
   activeDietaryFilters: [],
   toasts: [],
 
+  setMenuArea: (area) => set({ menuArea: area }),
   setActiveLocation: (slug) => set({ activeLocationSlug: slug }),
   setActiveMealPeriod: (meal) => set({ activeMealPeriod: meal }),
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -110,6 +120,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   resetUI: () =>
     set({
+      menuArea: "clark",
       activeLocationSlug: null,
       activeMealPeriod: null,
       searchQuery: "",

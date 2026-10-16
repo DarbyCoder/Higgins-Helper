@@ -212,6 +212,14 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
             )}
           </div>
 
+          {/* Estimated nutrition note (Worcester restaurant items) */}
+          {item.isEstimate && (
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.72rem", color: "var(--color-text-3)" }}>
+              <span className="badge badge-amber" style={{ fontSize: "0.62rem", marginRight: "0.4rem" }}>Estimated</span>
+              Based on a typical portion; actual values vary.
+            </p>
+          )}
+
           {/* Dietary attributes */}
           {item.attributes.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "0.75rem" }}>
@@ -276,7 +284,7 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
             </select>
           </div>
           <button className="btn-primary" onClick={handleAdd} style={{ width: "100%" }}>
-            {justAdded ? "✓ Added!" : `Add ${Math.round(item.calories * servings)} cal to ${mealSlot}`}
+            {justAdded ? "✓ Added!" : `Add ${item.isEstimate ? "~" : ""}${Math.round(item.calories * servings)} cal to ${mealSlot}`}
           </button>
         </div>
       </div>

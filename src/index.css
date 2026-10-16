@@ -291,6 +291,73 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   width: 100%;
 }
 
+/* ─── Worcester Restaurant Map (Leaflet) ────────────────────────────────────── */
+/* isolation keeps Leaflet's internal z-indexes (400–1000) from rising above
+   the bottom nav (50) and the menu/nutrition sheets (190–200). */
+.restaurant-map-frame {
+  position: relative;
+  isolation: isolate;
+  height: 340px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+.restaurant-map-frame .leaflet-container {
+  background: var(--color-surface-2);
+  font-family: var(--font-family-sans);
+}
+/* Dark mode: invert the light OSM tiles into a dark basemap */
+:root:not([data-theme="light"]) .restaurant-map-frame .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6);
+}
+:root:not([data-theme="light"]) .restaurant-map-frame .leaflet-control-attribution {
+  background: rgba(17,17,25,0.75);
+  color: var(--color-text-2);
+}
+.restaurant-map-frame .leaflet-control-attribution a { color: var(--color-primary-light); }
+
+/* Teardrop pin, drawn on a pseudo-element because Leaflet positions the
+   marker element itself with a transform */
+.restaurant-pin::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--color-primary);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+}
+.restaurant-pin::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+.restaurant-pin.is-closed::before { background: #6b7280; }
+.restaurant-pin:focus-visible { outline: 2px solid var(--color-primary-light); outline-offset: 2px; border-radius: 50%; }
+
+.campus-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: #fff;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+
 /* ─── Macro Colors as CSS custom props (for D3 / inline styles) ────────────── */
 :root {
   --macro-cal:     #c41e3a;
