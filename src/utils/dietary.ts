@@ -2,8 +2,8 @@
  * @file src/utils/dietary.ts
  * @description Shared dietary-attribute filtering for menu items.
  *
- * Used by both the Menu page's manual filter chips (LocationCard) and the
- * dashboard's meal recommender, so the two can't drift apart.
+ * Used by the Menu page's filter chips (LocationCard) and the Worcester
+ * restaurant menus.
  */
 import type { MenuItem } from "@/types";
 
