@@ -6,10 +6,15 @@
  *   • Signed in, profile still loading → branded splash screen
  *   • Signed in, confirmed no profile  → OnboardingPage (forced wizard)
  *   • Signed in, has profile           → children (the main app)
+ *
+ * In local test mode (`npm run dev:local`) sign-in is skipped entirely: no
+ * saved profile → OnboardingPage, otherwise the main app. The profile comes
+ * from this browser's localStorage only.
  */
 
 import type { ReactNode } from "react";
 import { useAuth }        from "@/firebase/AuthProvider";
+import { LOCAL_MODE }     from "@/firebase/localMode";
 import { useUserStore }   from "@/stores/useUserStore";
 import LoginPage          from "@/pages/LoginPage";
 import OnboardingPage     from "@/pages/OnboardingPage";
@@ -45,6 +50,11 @@ export default function AuthGate({ children }: AuthGateProps) {
   const { user, loading } = useAuth();
   const hasProfile    = useUserStore((s) => s.userProfile !== null);
   const profileStatus = useUserStore((s) => s.profileStatus);
+
+  // ── 0. Local test mode: no sign-in, no Firestore ──────────────────────────
+  if (LOCAL_MODE) {
+    return hasProfile ? <>{children}</> : <OnboardingPage />;
+  }
 
   // ── 1. Firebase is resolving initial auth state ───────────────────────────
   if (loading) {

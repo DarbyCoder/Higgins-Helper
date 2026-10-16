@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useUserStore, calculateMacroTargets, useThemeStore } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
+import { LOCAL_MODE } from "@/firebase/localMode";
 import type { UserProfile, ActivityLevel, WeightGoal, MealReminderPrefs } from "@/types";
+
+/** Local test mode: wipe this browser's saved data and start over at onboarding. */
+function resetLocalTestData() {
+  if (!window.confirm("Erase the profile, food log and settings saved in this browser?")) return;
+  localStorage.clear();
+  window.location.reload();
+}
 
 // ─── Default Reminder Preferences ─────────────────────────────────────────────
 
@@ -576,14 +584,14 @@ export default function ProfilePage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-1)" }}>
-              {user?.displayName ?? "Signed in"}
+              {LOCAL_MODE ? "Local test mode" : user?.displayName ?? "Signed in"}
             </div>
             <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              {user?.email}
+              {LOCAL_MODE ? "Saved in this browser only" : user?.email}
             </div>
           </div>
           <button
-            onClick={signOut}
+            onClick={LOCAL_MODE ? resetLocalTestData : signOut}
             style={{
               padding: "0.4rem 0.9rem",
               borderRadius: "var(--radius-md)",
@@ -594,13 +602,13 @@ export default function ProfilePage() {
               cursor: "pointer",
             }}
           >
-            Sign Out
+            {LOCAL_MODE ? "Reset test data" : "Sign Out"}
           </button>
         </div>
       </div>
 
       <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", marginTop: "1rem" }}>
-        Higgins Helper v1.0.5 · Clark University · Data synced to cloud
+        Higgins Helper v1.0.5 · Clark University · {LOCAL_MODE ? "Local test mode" : "Data synced to cloud"}
       </p>
     </div>
   );

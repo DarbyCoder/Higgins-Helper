@@ -17,8 +17,8 @@ import {
   type User,
 } from "firebase/auth";
 import { auth, googleProvider } from "./firebaseConfig";
+import { LOCAL_MODE } from "./localMode";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useDevAutoSignIn } from "@/hooks/useDevAutoSignIn";
 
 // ─── Context Shape ────────────────────────────────────────────────────────────
 
@@ -41,16 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Subscribe to Firebase auth state changes once on mount
   useEffect(() => {
+    // Local test mode: nobody signs in, so finish "loading" with no user
+    if (LOCAL_MODE) {
+      clearUser();
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => setUser(firebaseUser),
       (err)          => setError(err.message),
     );
     return unsubscribe;
-  }, [setUser, setError]);
-
-  // Sandbox only: sign into the seeded emulator account (no-op everywhere else)
-  useDevAutoSignIn();
+  }, [setUser, setError, clearUser]);
 
   // ── Auth Actions ──────────────────────────────────────────────────────────
 

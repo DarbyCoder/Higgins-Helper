@@ -10,6 +10,7 @@ import Header from "./Header";
 import BottomNav from "./BottomNav";
 import { useUIStore } from "@/stores/useUIStore";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { LOCAL_MODE } from "@/firebase/localMode";
 
 interface Props { children: ReactNode; }
 
@@ -50,6 +51,14 @@ export default function AppShell({ children }: Props) {
             fontWeight: 600, padding: "0.3rem", textAlign: "center",
           }}>
             You are currently offline. Viewing cached data.
+          </div>
+        )}
+        {LOCAL_MODE && (
+          <div style={{
+            background: "#6366f1", color: "#fff", fontSize: "0.75rem",
+            fontWeight: 600, padding: "0.3rem", textAlign: "center",
+          }}>
+            Local test mode · not signed in · data stays in this browser
           </div>
         )}
         <Header />
