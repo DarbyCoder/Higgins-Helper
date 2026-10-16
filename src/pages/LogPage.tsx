@@ -2,7 +2,8 @@
  * @file src/pages/LogPage.tsx
  * @description Full food log view for the selected date, grouped by meal slot.
  * Allows editing and removing entries, shows daily macro summary, and includes
- * a FAB to add custom foods from outside Higgins dining.
+ * FABs to log a Bistro order from a screenshot and to add custom foods from
+ * outside Higgins dining.
  */
 import { useNavigate } from "react-router-dom";
 import { useDateStore, useFoodLogStore, useUserStore } from "@/stores";
@@ -98,12 +99,26 @@ export default function LogPage() {
         position: "fixed",
         bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px) + 0.75rem)",
         left: 0, right: 0,
-        display: "flex", justifyContent: "flex-end",
+        display: "flex", justifyContent: "space-between",
         padding: "0 1.25rem",
         zIndex: 40,
         maxWidth: 440,
         margin: "0 auto",
       }}>
+        {/* Scan Bistro Order */}
+        <button
+          className="btn-primary"
+          onClick={() => navigate("/scan-order")}
+          aria-label="Log a Bistro order from a screenshot"
+          style={{
+            background: "#3b82f6", borderColor: "#3b82f6",
+            gap: "0.4rem", padding: "0.65rem 1.1rem", fontSize: "0.82rem",
+            boxShadow: "0 8px 32px rgba(59,130,246,0.45)",
+          }}
+        >
+          📷 Scan Bistro Order
+        </button>
+
         {/* Add Custom Food */}
         <button
           className="btn-primary"
