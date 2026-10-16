@@ -1,6 +1,6 @@
 # Render Blueprint for Higgins Helper.
 #
-# One free web service: Express serves the API (/api/menu, /api/ai) and the built
+# One free web service: Express serves the API (/api/menu) and the built
 # React PWA from dist/. User data lives in Firebase (Auth + Firestore), not on
 # this service, so Render's ephemeral disk loses nothing on redeploy.
 #
@@ -40,10 +40,4 @@ services:
       - key: VITE_FIREBASE_MESSAGING_SENDER_ID
         sync: false
       - key: VITE_FIREBASE_APP_ID
-        sync: false
-
-      # Server-side only (read at runtime, not baked into the bundle). Enables
-      # the AI nutritionist routes under /api/ai; leave it blank to run without
-      # them. Changing it needs only a restart.
-      - key: GEMINI_API_KEY
         sync: false

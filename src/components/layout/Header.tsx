@@ -73,13 +73,6 @@ function getHeaderContent(
         title: "Add Custom Food",
       };
 
-    // ── AI Advisor ──
-    case pathname === "/ai":
-      return {
-        subtitle: "Powered by Gemini",
-        title: "AI Nutritionist",
-      };
-
     // ── Profile / Settings ──
     case pathname === "/profile":
       return {

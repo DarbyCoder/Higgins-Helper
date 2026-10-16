@@ -5,7 +5,7 @@
  * API and the built frontend from dist/ as a single web service.
  *
  * Environment variables are loaded from .env (root) by dotenv when present.
- * See .env.example for the full list (GEMINI_API_KEY enables the AI routes).
+ * See .env.example for the full list.
  */
 
 // Load .env FIRST — before any other imports read process.env
@@ -15,19 +15,6 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { menuRouter, getScrapePromise, getLocalDateString } from "./routes/menu.js";
-import { aiRouter } from "./routes/ai.js";
-
-// ─── Startup Environment Validation ───────────────────────────────────────────
-// Fix #2: GEMINI_API_KEY absence is now a warning, not a fatal crash.
-// The scraper and menu routes don't need the Gemini key. The AI route throws
-// its own descriptive error when the key is missing at call time.
-
-if (!process.env.GEMINI_API_KEY) {
-  console.warn(
-    "[server] WARNING: GEMINI_API_KEY is not set. " +
-    "The /api/ai/chat endpoint will return errors (and dashboard AI blurbs are omitted) until it is added to .env."
-  );
-}
 
 const app = express();
 
@@ -61,7 +48,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/menu", menuRouter);
-app.use("/api/ai", aiRouter);
 
 // Unknown API paths get a JSON 404 instead of falling through to the SPA's
 // index.html below.

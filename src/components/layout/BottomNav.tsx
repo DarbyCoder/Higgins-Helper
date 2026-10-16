@@ -4,7 +4,6 @@
  * Highlights the active route and uses SVG icons for each tab.
  */
 import { NavLink, useLocation } from "react-router-dom";
-import { useUserStore } from "@/stores/useUserStore";
 
 const NAV_ITEMS = [
   {
@@ -33,14 +32,6 @@ const NAV_ITEMS = [
     ),
   },
   {
-    path: "/ai", label: "Advisor",
-    icon: (active: boolean) => (
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a10 10 0 110 20A10 10 0 0112 2z"/><path d="M12 16v-4M12 8h.01"/>
-      </svg>
-    ),
-  },
-  {
     path: "/profile", label: "Profile",
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round">
@@ -52,11 +43,6 @@ const NAV_ITEMS = [
 
 export default function BottomNav() {
   const location = useLocation();
-  const wantsAI = useUserStore((s) => s.userProfile?.wantsAIAdvisor ?? true);
-
-  const visibleItems = NAV_ITEMS.filter(item => 
-    item.path !== "/ai" || wantsAI
-  );
 
   return (
     <nav style={{
@@ -72,7 +58,7 @@ export default function BottomNav() {
         maxWidth: 480, margin: "0 auto",
         height: "4rem",
       }}>
-        {visibleItems.map(({ path, label, icon }) => {
+        {NAV_ITEMS.map(({ path, label, icon }) => {
           const isActive = path === "/"
             ? location.pathname === "/"
             : location.pathname.startsWith(path);

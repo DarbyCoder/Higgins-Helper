@@ -226,13 +226,12 @@ export interface UserProfile {
   activityLevel: ActivityLevel;
   goal: WeightGoal;
   dietaryRestrictions: string[]; // e.g. ["vegan", "made_without_gluten"]
-  wantsAIAdvisor?: boolean;
   /** Fix #20: Persisted meal reminder preferences */
   mealReminders?: MealReminderPrefs;
 }
 
 /**
- * The user's daily macro targets — either AI-calculated from profile or
+ * The user's daily macro targets — either calculated from profile or
  * manually set.
  */
 export interface MacroTargets {
@@ -242,15 +241,4 @@ export interface MacroTargets {
   totalCarbs: number; // grams
   fiber: number;     // grams
   sodium: number;    // mg
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AI CHAT
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface AIChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: string;
 }

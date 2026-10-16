@@ -18,7 +18,6 @@ import AppShell from "@/components/layout/AppShell";
 import DashboardPage from "@/pages/DashboardPage";
 import MenuPage from "@/pages/MenuPage";
 import LogPage from "@/pages/LogPage";
-import AIPage from "@/pages/AIPage";
 import ProfilePage from "@/pages/ProfilePage";
 import AddFoodPage from "@/pages/AddFoodPage";
 import AddDrinkPage from "@/pages/AddDrinkPage";
@@ -58,7 +57,6 @@ const router = createBrowserRouter([
       { path: "log",         element: <LogPage />       },
       { path: "add-food",    element: <AddFoodPage />   },
       { path: "add-drink",   element: <AddDrinkPage />  },
-      { path: "ai",          element: <AIPage />        },
       { path: "profile",     element: <ProfilePage />   },
     ],
   },
