@@ -98,26 +98,12 @@ export default function LogPage() {
         position: "fixed",
         bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px) + 0.75rem)",
         left: 0, right: 0,
-        display: "flex", justifyContent: "space-between",
+        display: "flex", justifyContent: "flex-end",
         padding: "0 1.25rem",
         zIndex: 40,
         maxWidth: 440,
         margin: "0 auto",
       }}>
-        {/* Add Water */}
-        <button
-          className="btn-primary"
-          onClick={() => navigate("/add-drink")}
-          aria-label="Add water"
-          style={{
-            background: "#3b82f6", borderColor: "#3b82f6",
-            gap: "0.4rem", padding: "0.65rem 1.1rem", fontSize: "0.82rem",
-            boxShadow: "0 8px 32px rgba(59,130,246,0.45)",
-          }}
-        >
-          💧 Add Drink
-        </button>
-
         {/* Add Custom Food */}
         <button
           className="btn-primary"

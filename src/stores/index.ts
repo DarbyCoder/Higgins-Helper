@@ -13,4 +13,3 @@ export { useUserStore, calculateMacroTargets } from "./useUserStore.js";
 export { useUIStore } from "./useUIStore.js";
 export { useThemeStore } from "./useThemeStore.js";
 export { useAuthStore } from "./useAuthStore.js";
-export { useWaterStore } from "./useWaterStore.js";

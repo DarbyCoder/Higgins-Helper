@@ -25,19 +25,7 @@ const MACRO_BARS: Array<{
   { key: "fiber",     targetKey: "fiber",      label: "Fiber",     unit: "g",  color: "#8b5cf6" },
 ];
 
-import { useWaterStore, useDateStore, useUserStore } from "@/stores";
-
 export default function DailyOverview({ totals, targets }: Props) {
-  const { selectedDate } = useDateStore();
-  const { getCups } = useWaterStore();
-  const { userProfile } = useUserStore();
-
-  const weightLbs = userProfile 
-    ? (userProfile.weightUnit === "kg" ? userProfile.weight * 2.20462 : userProfile.weight)
-    : 128;
-  const dailyGoalCups = Math.max(4, Math.round(weightLbs / 16));
-  const cups = getCups(selectedDate);
-
   return (
     <div className="glass" style={{ padding: "1.25rem" }}>
       {/* ── Top: Ring + quick stats ── */}
@@ -69,7 +57,7 @@ export default function DailyOverview({ totals, targets }: Props) {
         ))}
       </div>
 
-      {/* ── Sodium & Water notes ── */}
+      {/* ── Sodium note ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "0.85rem" }}>
         <div style={{
           padding: "0.5rem 0.75rem",
@@ -84,21 +72,6 @@ export default function DailyOverview({ totals, targets }: Props) {
             color: totals.sodium > targets.sodium ? "#ef4444" : "var(--color-text-2)"
           }}>
             {Math.round(totals.sodium).toLocaleString()} / {targets.sodium.toLocaleString()} mg
-          </span>
-        </div>
-        <div style={{
-          padding: "0.5rem 0.75rem",
-          borderRadius: "var(--radius-sm)",
-          background: "rgba(255,255,255,0.03)",
-          display: "flex", justifyContent: "space-between",
-          fontSize: "0.75rem",
-        }}>
-          <span style={{ color: "var(--color-text-3)" }}>Water</span>
-          <span style={{
-            fontWeight: 600,
-            color: "var(--color-text-2)"
-          }}>
-            {(cups * 240).toLocaleString()} / {(dailyGoalCups * 240).toLocaleString()} mL
           </span>
         </div>
       </div>

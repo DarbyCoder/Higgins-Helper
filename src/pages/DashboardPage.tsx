@@ -1,7 +1,7 @@
 /**
  * @file src/pages/DashboardPage.tsx
  * @description The main "Today" dashboard page. Shows the calorie ring,
- * macro breakdown, meal summary grid, streak, water tracker,
+ * macro breakdown, meal summary grid, streak,
  * weekly chart, dining hours, and a quick-action to the menu.
  */
 import { useNavigate } from "react-router-dom";
