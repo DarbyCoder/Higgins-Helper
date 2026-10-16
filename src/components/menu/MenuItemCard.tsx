@@ -66,7 +66,8 @@ export default function MenuItemCard({ item, onSelect }: Props) {
       {/* Calorie + macro mini-column */}
       <div style={{ flexShrink: 0, textAlign: "right" }}>
         <div style={{ fontSize: "1rem", fontWeight: 800, color: "var(--color-primary-light)" }}>
-          {calories}
+          {/* "~" marks estimated nutrition (Worcester restaurant items) */}
+          {item.isEstimate && "~"}{calories}
         </div>
         <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)", lineHeight: 1.3 }}>
           cal

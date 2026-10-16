@@ -39,6 +39,8 @@ export interface MenuItem {
   ingredientsList: string;
   allergensList: string;
   disclaimer: string;
+  /** True for Worcester restaurant items whose nutrition we estimated. */
+  isEstimate?: boolean;
 }
 
 export interface FoodStation {
@@ -67,6 +69,71 @@ export interface DailyMenuResponse {
   date: string;
   fetchedAt: string;
   locations: DiningLocation[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORCESTER RESTAURANTS
+// Hand-curated off-campus restaurants for the Menu tab's Worcester side.
+// The data lives in src/data/worcesterRestaurants.ts and is converted to the
+// DiningLocation / MenuItem shapes above by src/utils/restaurants.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Matches Date.getDay(): 0 = Sunday … 6 = Saturday. */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/** Which cluster on the map a restaurant belongs to. */
+export type RestaurantArea = "main-st" | "park-ave" | "trolley-yard";
+
+/**
+ * One opening window, in the same "h:mm am/pm" format as the Clark menu.
+ * A close earlier than the open (e.g. "12:00 am") means after midnight.
+ */
+export interface OpeningHours {
+  open: string;
+  close: string;
+  /** Tab name when a day has several windows, e.g. "Lunch" / "Dinner". */
+  label?: string;
+}
+
+export interface RestaurantItem {
+  id: string;           // unique within its restaurant, e.g. "big-mac"
+  name: string;
+  description?: string;
+  servingSize: string;  // estimated items state the portion we assumed
+  calories: number;
+  protein: number;      // g
+  totalFat: number;     // g
+  totalCarbs: number;   // g
+  sodium: number;       // mg
+  fiber: number;        // g
+  /** Dietary icon keys shared with the Clark menu ("vegan", "vegetarian", …). */
+  attributes?: string[];
+}
+
+export interface RestaurantSection {
+  id: string;
+  name: string;
+  items: RestaurantItem[];
+}
+
+export interface Restaurant {
+  slug: string;
+  name: string;
+  cuisine: string;
+  area: RestaurantArea;
+  address: string;
+  lat: number;
+  lng: number;
+  menuUrl?: string;
+  /** Opening windows for each weekday; an empty array means closed all day. */
+  hours: Record<Weekday, OpeningHours[]>;
+  /** "official" = the chain's published numbers; "estimated" = our estimates. */
+  nutritionSource: "official" | "estimated";
+  /** Where the menu, hours and nutrition numbers came from. */
+  sources: string[];
+  /** Month the details were last checked, e.g. "2026-10". */
+  lastVerified: string;
+  sections: RestaurantSection[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

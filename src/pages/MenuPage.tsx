@@ -1,24 +1,30 @@
 /**
  * @file src/pages/MenuPage.tsx
- * @description Browse the Clark dining menu for the selected date.
- * Fetches from the backend API, shows per-location collapsible cards,
- * and opens the NutritionModal on item tap.
+ * @description Browse food for the selected date. A switch at the top flips
+ * between the Clark dining menu (fetched from the backend API, shown as
+ * per-location collapsible cards) and nearby Worcester restaurants (map +
+ * list). Tapping an item on either side opens the NutritionModal.
  */
-import { useEffect, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { parseTimeToMinutes } from "@/utils/time";
-import { useDateStore, useMenuStore } from "@/stores";
+import { useDateStore, useMenuStore, useUIStore } from "@/stores";
 import type { MenuItem, DiningLocation } from "@/types";
 
+import AreaSwitch from "@/components/menu/AreaSwitch";
 import MenuSearch from "@/components/menu/MenuSearch";
 import LocationCard from "@/components/menu/LocationCard";
 import NutritionModal from "@/components/menu/NutritionModal";
 import { LocationCardErrorBoundary } from "@/components/menu/LocationCardErrorBoundary";
 
+// Leaflet and the restaurant data only load once the Worcester side is opened
+const WorcesterView = lazy(() => import("@/components/restaurants/WorcesterView"));
+
 export default function MenuPage() {
   const navigate = useNavigate();
   const { selectedDate } = useDateStore();
   const { menuData, isLoading, error, fetchMenu } = useMenuStore();
+  const menuArea = useUIStore((s) => s.menuArea);
 
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [selectedLocation, setSelectedLoc] = useState("");
@@ -55,76 +61,87 @@ export default function MenuPage() {
   return (
     <div className="page">
       {/* Header controls */}
+      <div style={{ marginBottom: "0.85rem" }}>
+        <AreaSwitch />
+      </div>
       <div style={{ marginBottom: "1rem" }}>
         <MenuSearch />
       </div>
 
-      {/* Fetch timing meta */}
-      {menuData && (
-        <div style={{ fontSize: "0.65rem", color: "var(--color-text-3)", marginBottom: "0.75rem" }}>
-          Updated {new Date(menuData.fetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </div>
+      {menuArea === "worcester" ? (
+        <Suspense fallback={<div className="skeleton" style={{ height: 360, borderRadius: "var(--radius-lg)" }} />}>
+          <WorcesterView onSelectItem={handleSelectItem} />
+        </Suspense>
+      ) : (
+        <>
+          {/* Fetch timing meta */}
+          {menuData && (
+            <div style={{ fontSize: "0.65rem", color: "var(--color-text-3)", marginBottom: "0.75rem" }}>
+              Updated {new Date(menuData.fetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </div>
+          )}
+
+          {/* Loading state — shimmer skeletons shaped like real LocationCards */}
+          {isLoading && <MenuLoadingSkeleton />}
+
+          {/* Error state */}
+          {error && !isLoading && (
+            <div style={{
+              padding: "1.25rem", borderRadius: "var(--radius-lg)",
+              background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⚠️</div>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "#f87171", fontWeight: 600 }}>
+                Couldn't load menu data
+              </p>
+              <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", color: "var(--color-text-3)" }}>
+                Make sure the API server is running, then try again.
+              </p>
+              <button className="btn-ghost" onClick={() => fetchMenu(selectedDate)} style={{ marginTop: "0.75rem" }}>
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* No data for date */}
+          {!isLoading && !error && menuData && menuData.locations.length === 0 && (
+            <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🍽️</div>
+              <p style={{ margin: 0, fontWeight: 600, color: "var(--color-text-1)" }}>No dining service today</p>
+              <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "var(--color-text-3)" }}>
+                Clark dining may be closed for a break or holiday.
+              </p>
+            </div>
+          )}
+
+          {/* Open locations */}
+          {!isLoading && openLocations.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <div className="section-title">Open Now ({openLocations.length})</div>
+              {openLocations.map((loc) => (
+                <LocationCardErrorBoundary key={loc.slug} locationName={loc.name}>
+                  <LocationCard location={loc} onSelectItem={handleSelectItem} />
+                </LocationCardErrorBoundary>
+              ))}
+            </div>
+          )}
+
+          {/* Closed locations */}
+          {!isLoading && closedLocations.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div className="section-title">Closed ({closedLocations.length})</div>
+              {closedLocations.map((loc) => (
+                <LocationCardErrorBoundary key={loc.slug} locationName={loc.name}>
+                  <LocationCard location={loc} onSelectItem={handleSelectItem} />
+                </LocationCardErrorBoundary>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Loading state — shimmer skeletons shaped like real LocationCards */}
-      {isLoading && <MenuLoadingSkeleton />}
-
-      {/* Error state */}
-      {error && !isLoading && (
-        <div style={{
-          padding: "1.25rem", borderRadius: "var(--radius-lg)",
-          background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
-          textAlign: "center",
-        }}>
-          <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⚠️</div>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "#f87171", fontWeight: 600 }}>
-            Couldn't load menu data
-          </p>
-          <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", color: "var(--color-text-3)" }}>
-            Make sure the API server is running, then try again.
-          </p>
-          <button className="btn-ghost" onClick={() => fetchMenu(selectedDate)} style={{ marginTop: "0.75rem" }}>
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* No data for date */}
-      {!isLoading && !error && menuData && menuData.locations.length === 0 && (
-        <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🍽️</div>
-          <p style={{ margin: 0, fontWeight: 600, color: "var(--color-text-1)" }}>No dining service today</p>
-          <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "var(--color-text-3)" }}>
-            Clark dining may be closed for a break or holiday.
-          </p>
-        </div>
-      )}
-
-      {/* Open locations */}
-      {!isLoading && openLocations.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "0.75rem" }}>
-          <div className="section-title">Open Now ({openLocations.length})</div>
-          {openLocations.map((loc) => (
-            <LocationCardErrorBoundary key={loc.slug} locationName={loc.name}>
-              <LocationCard location={loc} onSelectItem={handleSelectItem} />
-            </LocationCardErrorBoundary>
-          ))}
-        </div>
-      )}
-
-      {/* Closed locations */}
-      {!isLoading && closedLocations.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div className="section-title">Closed ({closedLocations.length})</div>
-          {closedLocations.map((loc) => (
-            <LocationCardErrorBoundary key={loc.slug} locationName={loc.name}>
-              <LocationCard location={loc} onSelectItem={handleSelectItem} />
-            </LocationCardErrorBoundary>
-          ))}
-        </div>
-      )}
-
-      {!isLoading && !error && (
+      {(menuArea === "worcester" || (!isLoading && !error)) && (
         <button
           className="btn-primary"
           onClick={() => navigate("/log")}
