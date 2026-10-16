@@ -2,7 +2,8 @@
  * @file src/pages/LogPage.tsx
  * @description Full food log view for the selected date, grouped by meal slot.
  * Allows editing and removing entries, shows daily macro summary, and includes
- * a FAB to add custom foods from outside Higgins dining.
+ * FABs to log a drink, log a Bistro order from a screenshot and add custom
+ * foods from outside Higgins dining.
  */
 import { useNavigate } from "react-router-dom";
 import { useDateStore, useFoodLogStore, useUserStore } from "@/stores";
@@ -67,7 +68,7 @@ export default function LogPage() {
 
       {/* Grouped by meal */}
       {!isEmpty && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", paddingBottom: "5rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", paddingBottom: "8rem" }}>
           {MEAL_ORDER.map(({ key, label, emoji }) => {
             const mealEntries = entries.filter((e) => e.mealSlot === key);
             if (mealEntries.length === 0) return null;
@@ -98,7 +99,7 @@ export default function LogPage() {
         position: "fixed",
         bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px) + 0.75rem)",
         left: 0, right: 0,
-        display: "flex", justifyContent: "space-between",
+        display: "flex", justifyContent: "space-between", alignItems: "flex-end",
         padding: "0 1.25rem",
         zIndex: 40,
         maxWidth: 440,
@@ -118,21 +119,38 @@ export default function LogPage() {
           💧 Add Drink
         </button>
 
-        {/* Add Custom Food */}
-        <button
-          className="btn-primary"
-          onClick={() => navigate("/add-food")}
-          aria-label="Add custom food"
-          style={{
-            gap: "0.4rem", padding: "0.65rem 1.1rem", fontSize: "0.82rem",
-            boxShadow: "0 8px 32px rgba(196,30,58,0.45)",
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Add Custom Food
-        </button>
+        {/* Three buttons don't fit one row on a phone, so these two stack */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.5rem" }}>
+          {/* Scan Bistro Order */}
+          <button
+            className="btn-primary"
+            onClick={() => navigate("/scan-order")}
+            aria-label="Log a Bistro order from a screenshot"
+            style={{
+              background: "#3b82f6", borderColor: "#3b82f6",
+              gap: "0.4rem", padding: "0.65rem 1.1rem", fontSize: "0.82rem",
+              boxShadow: "0 8px 32px rgba(59,130,246,0.45)",
+            }}
+          >
+            📷 Scan Bistro Order
+          </button>
+
+          {/* Add Custom Food */}
+          <button
+            className="btn-primary"
+            onClick={() => navigate("/add-food")}
+            aria-label="Add custom food"
+            style={{
+              gap: "0.4rem", padding: "0.65rem 1.1rem", fontSize: "0.82rem",
+              boxShadow: "0 8px 32px rgba(196,30,58,0.45)",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Custom Food
+          </button>
+        </div>
       </div>
     </div>
   );

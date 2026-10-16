@@ -76,8 +76,8 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Your food log",
     body:
       "Everything you've eaten, grouped by meal. Use + and − to change servings or " +
-      "swipe an entry left to delete it. Ate off campus? Log a drink or add a custom " +
-      "food. You can even scan a barcode.",
+      "swipe an entry left to delete it. Ordered from The Bistro? Scan your Grubhub " +
+      "screenshot to log it. Ate off campus? Log a drink, add a custom food or scan a barcode.",
   },
   {
     target: "nav-advisor",

@@ -23,6 +23,7 @@ import AIPage from "@/pages/AIPage";
 import ProfilePage from "@/pages/ProfilePage";
 import AddFoodPage from "@/pages/AddFoodPage";
 import AddDrinkPage from "@/pages/AddDrinkPage";
+import ScanOrderPage from "@/pages/ScanOrderPage";
 
 /**
  * Root layout — wraps all pages with AppShell (header + bottom nav).
@@ -60,6 +61,7 @@ const router = createBrowserRouter([
       { path: "menu",        element: <MenuPage />      },
       { path: "log",         element: <LogPage />       },
       { path: "add-food",    element: <AddFoodPage />   },
+      { path: "scan-order",  element: <ScanOrderPage /> },
       { path: "add-drink",   element: <AddDrinkPage />  },
       { path: "ai",          element: <AIPage />        },
       { path: "profile",     element: <ProfilePage />   },
