@@ -1,10 +1,11 @@
 /**
  * @file server/index.ts
- * @description Express server entry point for local development.
- * In production, each route is deployed as a Firebase Cloud Function.
+ * @description Express server entry point. In development it serves only the
+ * API (Vite serves the frontend). In production (e.g. on Render) it serves the
+ * API and the built frontend from dist/ as a single web service.
  *
- * Environment variables are loaded from .env (root) by dotenv.
- * Add GEMINI_API_KEY=your_key to a .env file at the project root.
+ * Environment variables are loaded from .env (root) by dotenv when present.
+ * See .env.example for the full list (GEMINI_API_KEY enables the AI routes).
  */
 
 // Load .env FIRST — before any other imports read process.env
@@ -29,7 +30,16 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const app = express();
-const PORT = process.env.PORT ?? 3001;
+
+// Render (and most hosts) assign the port via $PORT. Bind on all interfaces so
+// the platform's router can reach the process.
+const PORT = Number(process.env.PORT) || 3001;
+const HOST = "0.0.0.0";
+
+// Render terminates TLS at one load balancer and forwards via X-Forwarded-For.
+// Trusting that single hop gives express-rate-limit the real client IP instead
+// of the load balancer's, so users don't share one rate-limit bucket.
+app.set("trust proxy", 1);
 
 // Fix #13: Default NODE_ENV to "development" when unset.
 // The dev script (tsx watch) doesn't set NODE_ENV, which previously caused
@@ -52,6 +62,12 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/menu", menuRouter);
 app.use("/api/ai", aiRouter);
+
+// Unknown API paths get a JSON 404 instead of falling through to the SPA's
+// index.html below.
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
 
 // ─── Serve Frontend in Production ─────────────────────────────────────────────
 // Fix #13: Only register static serving when actually in production.
@@ -101,8 +117,8 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`[server] Higgins Helper API running at http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`[server] Higgins Helper API listening on ${HOST}:${PORT}`);
   console.log(`[server] CORS origin: ${CORS_ORIGIN}`);
   console.log(`[server] Environment: ${isDev ? "development" : "production"}`);
   console.log(`[server] Try: http://localhost:${PORT}/api/menu?date=${getLocalDateString()}`);

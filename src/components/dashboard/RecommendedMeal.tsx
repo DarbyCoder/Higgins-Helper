@@ -7,12 +7,13 @@
  * each with a one-tap "+" quick log. An optional Gemini one-liner is layered on
  * top and silently omitted if unavailable.
  *
- * Only shown when the dashboard is viewing (effective) today, since
+ * Only shown when the dashboard is viewing today, since
  * recommendations depend on what's open right now.
  */
 import { useEffect, useMemo, useState } from "react";
 import type { LoggedFoodEntry, MacroTargets, MacroTotals, MenuItem } from "@/types";
 import {
+  toLocalDateString,
   useAuthStore,
   useDateStore,
   useFoodLogStore,
@@ -42,7 +43,7 @@ const EMPTY_RESTRICTIONS: string[] = [];
 
 export default function RecommendedMeal({ totals, targets, entries }: Props) {
   const selectedDate = useDateStore((s) => s.selectedDate);
-  const today        = useDateStore((s) => s.getEffectiveToday());
+  const today        = toLocalDateString();
   const menu         = useMenuStore((s) => s.menuCache[today]);
   const isLoading    = useMenuStore((s) => s.isLoading);
   const fetchMenu    = useMenuStore((s) => s.fetchMenu);

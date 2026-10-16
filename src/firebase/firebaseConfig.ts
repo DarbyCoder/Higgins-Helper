@@ -3,6 +3,8 @@
  * @description Firebase app initialization. Exports the Auth and Firestore
  * instances used throughout the app. All config values come from Vite
  * environment variables (VITE_FIREBASE_*) so no secrets are hard-coded.
+ * Vite inlines these at BUILD time, so on Render they must be set before the
+ * build runs (see .env.example).
  *
  * LOCAL TEST MODE
  * In `npm run dev:local` (see localMode.ts) the app never talks to Firebase.
@@ -45,8 +47,8 @@ if (!LOCAL_MODE) {
     console.error(
       "[firebase] MISSING environment variables:",
       missing.join(", "),
-      "\nMake sure your .env.local file exists at the project root and contains these keys.",
-      "\nCopy .env.example → .env.local and fill in the values from Firebase Console → Project Settings."
+      "\nLocally: copy .env.example → .env.local and fill in the values from Firebase Console → Project Settings.",
+      "\nOn Render: add them under Environment, then redeploy (they are baked in at build time)."
     );
   }
 }

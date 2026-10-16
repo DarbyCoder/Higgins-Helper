@@ -29,6 +29,7 @@ import {
   LOCATION_LINK_SELECTOR,
   HOURS_SPAN_SELECTOR,
   CLOSED_INDICATOR,
+  SUPPORTED_LOCATION_SLUGS,
 } from "./selectors.js";
 
 // ─── HTTP Client ──────────────────────────────────────────────────────────────
@@ -282,7 +283,8 @@ export async function scrapeMenuHours(date: string): Promise<LocationStub[]> {
 
   $(LOCATION_ROW_SELECTOR).each((_, rowEl) => {
     const stub = parseLocationRow($, rowEl, date);
-    if (stub) {
+    // Unsupported locations are skipped here so Layer 2 never fetches them
+    if (stub && SUPPORTED_LOCATION_SLUGS.has(stub.slug)) {
       locationStubs.push(stub);
     }
   });
