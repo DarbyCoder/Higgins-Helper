@@ -130,7 +130,7 @@ function TourOverlay() {
       return;
     }
 
-    // A step that opens a tab checks the tab exists first (e.g. Advisor with the AI off)
+    // A step that opens a tab checks the tab exists first (e.g. a tab this user doesn't have)
     if (step.requires && !document.querySelector(`[data-tour="${step.requires}"]`)) {
       go(direction.current);
       return;

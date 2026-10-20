@@ -5,9 +5,9 @@
  * IntroTour.tsx only handles layout and behaviour.
  *
  * Each spotlight step points at an element tagged `data-tour="<target>"`.
- * A step whose target isn't on screen is skipped. Steps that open a tab list
- * the tab's nav button under `requires`, so the Advisor step is skipped
- * (without opening the page) for users who turned the AI off.
+ * A step whose target isn't on screen is skipped. A step that opens a tab can
+ * list the tab's nav button under `requires`, so it's skipped (without opening
+ * the page) for users who don't have that tab.
  */
 
 /**
@@ -76,17 +76,8 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Your food log",
     body:
       "Everything you've eaten, grouped by meal. Use + and − to change servings or " +
-      "swipe an entry left to delete it. Ate off campus? Log a drink or add a custom " +
-      "food. You can even scan a barcode.",
-  },
-  {
-    target: "nav-advisor",
-    route: "/ai",
-    requires: "nav-advisor",
-    title: "Ask the AI nutritionist",
-    body:
-      "Chat about what to eat next. It already knows your goals and what you've " +
-      "logged today.",
+      "swipe an entry left to delete it. Ordered from The Bistro? Scan your Grubhub " +
+      "screenshot to log it. Ate off campus? Add a custom food or scan a barcode.",
   },
   {
     target: "nav-profile",
