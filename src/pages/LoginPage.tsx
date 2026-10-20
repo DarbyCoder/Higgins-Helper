@@ -1,16 +1,24 @@
 /**
  * @file src/pages/LoginPage.tsx
  * @description Walkthrough landing page + login form.
- * Shows a 3-slide intro about the app's features before showing the sign-in form.
+ * Shows a 3-tab intro about the app's features before showing the sign-in form.
+ * Tabs can be switched with the tab bar, Back/Continue, swiping, or the arrow keys.
  */
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { useAuth } from "@/firebase/AuthProvider";
+
+// Fraction of the slide width a swipe must travel to switch tabs
+const SWIPE_THRESHOLD = 0.15;
 
 export default function LoginPage() {
   const { signIn, signUp, signInWithGoogle, error } = useAuth();
 
   const [step, setStep]                 = useState(0);
+  const [drag, setDrag]                 = useState(0); // swipe offset as a fraction of the slide width
+  const [isDragging, setIsDragging]     = useState(false);
+  const dragStart                       = useRef<{ x: number; width: number } | null>(null);
+  const tabRefs                         = useRef<(HTMLButtonElement | null)[]>([]);
   const [mode, setMode]                 = useState<"signin" | "signup">("signup");
   const [name, setName]                 = useState("");
   const [email, setEmail]               = useState("");
@@ -61,21 +69,75 @@ export default function LoginPage() {
 
   const WALKTHROUGH_SLIDES = [
     {
+      tab: "Welcome",
       emoji: "🥗",
       title: "Welcome to Higgins Helper",
       text: "The ultimate companion for eating smart at Clark University.",
     },
     {
+      tab: "Menus",
       emoji: "🍽️",
       title: "Live Dining Menus",
       text: "See exactly what's serving at Higgins today, complete with full nutrition facts and ingredients.",
     },
     {
+      tab: "Macros",
       emoji: "🎯",
       title: "Track Your Macros",
       text: "Log your meals with a single tap and easily hit your daily protein and calorie goals.",
     },
   ];
+  const lastSlide = WALKTHROUGH_SLIDES.length - 1;
+
+  // Stepping past the last tab opens the login form.
+  function goTo(i: number) {
+    setStep(Math.max(0, Math.min(i, WALKTHROUGH_SLIDES.length)));
+  }
+
+  function handleTabKey(e: KeyboardEvent) {
+    const next =
+      e.key === "ArrowRight" ? step + 1 :
+      e.key === "ArrowLeft"  ? step - 1 :
+      e.key === "Home"       ? 0 :
+      e.key === "End"        ? lastSlide : null;
+    if (next === null || next < 0 || next > lastSlide) return;
+    e.preventDefault();
+    setStep(next);
+    tabRefs.current[next]?.focus();
+  }
+
+  function handlePointerDown(e: PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragStart.current = { x: e.clientX, width: e.currentTarget.offsetWidth };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (!dragStart.current) return;
+    let offset = (e.clientX - dragStart.current.x) / dragStart.current.width;
+    // Rubber-band before the first tab so it's clear there's nothing there
+    if (step === 0 && offset > 0) offset /= 3;
+    setIsDragging(true);
+    setDrag(offset);
+  }
+
+  function handlePointerUp() {
+    if (!dragStart.current) return;
+    dragStart.current = null;
+    setIsDragging(false);
+    if (drag <= -SWIPE_THRESHOLD) goTo(step + 1);
+    else if (drag >= SWIPE_THRESHOLD) goTo(step - 1);
+    setDrag(0);
+  }
+
+  function handlePointerCancel() {
+    dragStart.current = null;
+    setIsDragging(false);
+    setDrag(0);
+  }
+
+  // Where the tab highlight sits, following the finger mid-swipe
+  const pillPos = Math.max(0, Math.min(step - drag, lastSlide));
 
   return (
     <div style={{
@@ -97,6 +159,43 @@ export default function LoginPage() {
         .animate-slide {
           animation: slideUpFade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
         }
+
+        /* Walkthrough tab switching */
+        @keyframes wtPop {
+          0%   { opacity: 0; transform: scale(0.6) rotate(-8deg); }
+          60%  { opacity: 1; transform: scale(1.12) rotate(3deg); }
+          100% { opacity: 1; transform: scale(1) rotate(0); }
+        }
+        .wt-track, .wt-pill {
+          transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .wt-track.is-dragging, .wt-pill.is-dragging { transition: none; }
+        .wt-slide {
+          opacity: 0.3;
+          transform: scale(0.92);
+          transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .wt-slide.is-active { opacity: 1; transform: none; }
+        .wt-slide.is-active .wt-emoji { animation: wtPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s both; }
+        .wt-slide.is-active h1        { animation: fade-up 0.4s ease 0.12s both; }
+        .wt-slide.is-active p         { animation: fade-up 0.4s ease 0.18s both; }
+        .wt-back {
+          max-width: 7rem;
+          padding: 1.1rem 1.4rem;
+          transition: max-width 0.35s ease, opacity 0.25s ease, padding 0.35s ease, margin 0.35s ease, border-width 0.35s ease;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+        .wt-back.is-hidden {
+          max-width: 0; opacity: 0;
+          padding-left: 0; padding-right: 0;
+          margin-right: -0.5rem; border-width: 0;
+          pointer-events: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .wt-track, .wt-pill, .wt-slide, .wt-back { transition: none; }
+          .wt-slide.is-active * { animation: none; }
+        }
       `}</style>
 
       {/* Ambient background glows */}
@@ -114,19 +213,99 @@ export default function LoginPage() {
       }} />
 
       {step < WALKTHROUGH_SLIDES.length ? (
-        <div style={{ zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 400, flex: 1, justifyContent: "center" }}>
-          
-          <div key={step} className="animate-slide" style={{ textAlign: "center", width: "100%" }}>
-            <div style={{ fontSize: "4.5rem", marginBottom: "1.5rem" }}>
-              {WALKTHROUGH_SLIDES[step].emoji}
-            </div>
+        <div className="animate-slide" style={{ zIndex: 1, display: "flex", flexDirection: "column", width: "100%", maxWidth: 400, flex: 1 }}>
 
-            <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "1rem", color: "var(--color-text-1)" }}>
-              {WALKTHROUGH_SLIDES[step].title}
-            </h1>
-            <p style={{ fontSize: "1.05rem", color: "var(--color-text-2)", lineHeight: 1.5, padding: "0 1rem" }}>
-              {WALKTHROUGH_SLIDES[step].text}
-            </p>
+          {/* Tab bar */}
+          <div
+            role="tablist"
+            aria-label="App walkthrough"
+            onKeyDown={handleTabKey}
+            style={{
+              position: "relative", display: "flex",
+              background: "var(--color-surface-2)",
+              borderRadius: "var(--radius-full)",
+              padding: 3,
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            {/* Sliding highlight behind the active tab */}
+            <div
+              aria-hidden="true"
+              className={`wt-pill${isDragging ? " is-dragging" : ""}`}
+              style={{
+                position: "absolute", top: 3, bottom: 3, left: 3,
+                width: `calc((100% - 6px) / ${WALKTHROUGH_SLIDES.length})`,
+                transform: `translateX(${pillPos * 100}%)`,
+                borderRadius: "var(--radius-full)",
+                background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
+                boxShadow: "0 2px 12px rgba(196,30,58,0.35)",
+              }}
+            />
+            {WALKTHROUGH_SLIDES.map((slide, i) => (
+              <button
+                key={slide.tab}
+                ref={(el) => { tabRefs.current[i] = el; }}
+                role="tab"
+                id={`wt-tab-${i}`}
+                aria-selected={i === step}
+                aria-controls={`wt-panel-${i}`}
+                tabIndex={i === step ? 0 : -1}
+                onClick={() => setStep(i)}
+                style={{
+                  flex: 1, position: "relative",
+                  padding: "0.55rem 0",
+                  border: "none", background: "transparent", cursor: "pointer",
+                  borderRadius: "var(--radius-full)",
+                  fontWeight: 600, fontSize: "0.85rem",
+                  color: i === step ? "#fff" : "var(--color-text-2)",
+                  transition: "color 0.25s",
+                }}
+              >
+                {slide.tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Slides — the whole track slides sideways; swipe anywhere here to switch tabs */}
+          <div
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            // Bleeds into the page padding so slides clip at the screen edge, not 1.5rem in
+            style={{ flex: 1, display: "flex", margin: "0 -1.5rem", overflow: "hidden", touchAction: "pan-y", userSelect: "none" }}
+          >
+            <div
+              className={`wt-track${isDragging ? " is-dragging" : ""}`}
+              style={{
+                display: "flex", alignItems: "center", width: "100%",
+                transform: `translateX(${(drag - step) * 100}%)`,
+              }}
+            >
+              {WALKTHROUGH_SLIDES.map((slide, i) => (
+                <div
+                  key={slide.tab}
+                  role="tabpanel"
+                  id={`wt-panel-${i}`}
+                  aria-labelledby={`wt-tab-${i}`}
+                  aria-hidden={i !== step}
+                  inert={i !== step}
+                  className={`wt-slide${i === step ? " is-active" : ""}`}
+                  style={{ flex: "0 0 100%", padding: "0 1.5rem", textAlign: "center" }}
+                >
+                  <div className="wt-emoji" style={{ fontSize: "4.5rem", marginBottom: "1.5rem" }}>
+                    {slide.emoji}
+                  </div>
+
+                  <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "1rem", color: "var(--color-text-1)" }}>
+                    {slide.title}
+                  </h1>
+                  <p style={{ fontSize: "1.05rem", color: "var(--color-text-2)", lineHeight: 1.5, padding: "0 1rem" }}>
+                    {slide.text}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
 
         </div>
@@ -296,26 +475,27 @@ export default function LoginPage() {
       {/* Navigation Footer for Walkthrough */}
       {step < WALKTHROUGH_SLIDES.length && (
         <div style={{ width: "100%", maxWidth: 400, marginTop: "auto", zIndex: 1, paddingBottom: "1rem" }}>
-          
-          {/* Progress dots */}
-          <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginBottom: "2.5rem" }}>
-            {WALKTHROUGH_SLIDES.map((_, i) => (
-              <div key={i} style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: i === step ? "var(--color-primary)" : "var(--color-surface-3)",
-                transition: "background 0.3s"
-              }} />
-            ))}
+
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            {/* Back collapses away on the first tab */}
+            <button
+              className={`btn-ghost wt-back${step === 0 ? " is-hidden" : ""}`}
+              onClick={() => goTo(step - 1)}
+              disabled={step === 0}
+              aria-hidden={step === 0}
+              style={{ fontSize: "1rem", borderRadius: "var(--radius-full)" }}
+            >
+              Back
+            </button>
+            <button
+              className="btn-primary"
+              onClick={() => goTo(step + 1)}
+              style={{ flex: 1, padding: "1.1rem", fontSize: "1.1rem", borderRadius: "var(--radius-full)" }}
+            >
+              {step === lastSlide ? "Get started" : "Continue"}
+            </button>
           </div>
 
-          <button
-            className="btn-primary"
-            onClick={() => setStep(s => s + 1)}
-            style={{ width: "100%", padding: "1.1rem", fontSize: "1.1rem", borderRadius: "var(--radius-full)" }}
-          >
-            Continue
-          </button>
-          
           <button
             className="btn-ghost"
             onClick={() => setStep(WALKTHROUGH_SLIDES.length)}
