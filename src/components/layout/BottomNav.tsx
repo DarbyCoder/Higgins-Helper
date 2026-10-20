@@ -63,7 +63,7 @@ export default function BottomNav() {
             ? location.pathname === "/"
             : location.pathname.startsWith(path);
           return (
-            <NavLink key={path} to={path} style={{
+            <NavLink key={path} to={path} data-tour={`nav-${label.toLowerCase()}`} style={{
               flex: 1, display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center",
               gap: 3,

@@ -14,6 +14,7 @@ import { AuthProvider } from "@/firebase/AuthProvider";
 import AuthGate from "@/components/auth/AuthGate";
 import { useFirestoreSync } from "@/hooks/useFirestoreSync";
 import { useMealReminders } from "@/hooks/useMealReminders";
+import IntroTour from "@/components/tour/IntroTour";
 import AppShell from "@/components/layout/AppShell";
 import DashboardPage from "@/pages/DashboardPage";
 import MenuPage from "@/pages/MenuPage";
@@ -43,6 +44,8 @@ function RootLayout() {
   return (
     <AppShell>
       <Outlet />
+      {/* Plays once per user on launch; replayable from Profile */}
+      <IntroTour />
     </AppShell>
   );
 }

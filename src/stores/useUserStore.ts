@@ -18,7 +18,10 @@ import type {
   ActivityLevel,
   WeightGoal,
 } from "../types/index.js";
-import { setUserProfile as fsSetUserProfile } from "@/firebase/firestoreService";
+import {
+  setUserProfile as fsSetUserProfile,
+  setIntroVersionSeen as fsSetIntroVersionSeen,
+} from "@/firebase/firestoreService";
 import { useAuthStore } from "./useAuthStore.js";
 import type { FirestoreUserProfile } from "@/firebase/firestoreService";
 
@@ -151,6 +154,12 @@ interface UserState {
   profileStatus: "checking" | "ready" | "error";
 
   /**
+   * Highest intro tour version this user has finished or skipped (0 = never).
+   * Stored on the Firestore profile so it follows the user across devices.
+   */
+  introVersionSeen: number;
+
+  /**
    * Saves a user profile and recomputes macro targets (unless manually overridden).
    * Also persists to Firestore if the user is signed in.
    */
@@ -184,6 +193,9 @@ interface UserState {
 
   /** Records how the Firestore profile read went. Called by useFirestoreSync. */
   setProfileStatus: (status: "checking" | "ready" | "error") => void;
+
+  /** Marks the intro tour as seen up to `version`. Also persists to Firestore. */
+  markIntroSeen: (version: number) => void;
 }
 
 // ─── Helper: persist to Firestore ────────────────────────────────────────────
@@ -218,6 +230,7 @@ export const useUserStore = create<UserState>()(
       overridePresets:         [DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS, DEFAULT_MACRO_TARGETS],
       activeOverrideIndex:     0,
       profileStatus:           "checking",
+      introVersionSeen:        0,
 
       setUserProfile: (profile) => {
         const shouldRecalculate = !get().macroTargetsManuallySet;
@@ -302,10 +315,18 @@ export const useUserStore = create<UserState>()(
           // Support older documents that may not have these arrays
           overridePresets:         (data as any).overridePresets ?? [data.macroTargets, data.macroTargets, data.macroTargets, data.macroTargets],
           activeOverrideIndex:     (data as any).activeOverrideIndex ?? 0,
+          // Missing on every profile created before the tour existed
+          introVersionSeen:        data.introVersionSeen ?? 0,
         });
       },
 
       setProfileStatus: (status) => set({ profileStatus: status }),
+
+      markIntroSeen: (version) => {
+        set({ introVersionSeen: version });
+        const uid = useAuthStore.getState().user?.uid;
+        if (uid) fsSetIntroVersionSeen(uid, version).catch(console.error);
+      },
     }),
 
     {
@@ -317,6 +338,7 @@ export const useUserStore = create<UserState>()(
         macroTargetsManuallySet: state.macroTargetsManuallySet,
         overridePresets:         state.overridePresets,
         activeOverrideIndex:     state.activeOverrideIndex,
+        introVersionSeen:        state.introVersionSeen,
       }),
     }
   )

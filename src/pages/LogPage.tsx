@@ -95,7 +95,7 @@ export default function LogPage() {
       )}
 
       {/* ── FABs ── */}
-      <div style={{
+      <div data-tour="log-actions" style={{
         position: "fixed",
         bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px) + 0.75rem)",
         left: 0, right: 0,

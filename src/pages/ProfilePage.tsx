@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useUserStore, calculateMacroTargets, useThemeStore } from "@/stores";
+import { useUserStore, calculateMacroTargets, useThemeStore, useUIStore } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
 import { LOCAL_MODE } from "@/firebase/localMode";
 import type { UserProfile, ActivityLevel, WeightGoal, MealReminderPrefs } from "@/types";
@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const { userProfile, setUserProfile, macroTargets, setMacroTargets, resetMacroTargetsToAuto, macroTargetsManuallySet, activeOverrideIndex, setActiveOverrideIndex } = useUserStore();
   const { theme, toggleTheme } = useThemeStore();
   const { user, signOut } = useAuth();
+  const openTour = useUIStore((s) => s.openTour);
   const isDark = theme === "dark";
 
   // Form state seeded from existing profile
@@ -537,6 +538,24 @@ export default function ProfilePage() {
       <button className="btn-primary" onClick={handleSave} style={{ width: "100%", justifyContent: "center", padding: "0.9rem" }}>
         {saved ? "✓ Saved!" : "Save Profile"}
       </button>
+
+      {/* Help */}
+      <div className="glass" style={{ padding: "1rem", marginTop: "1rem" }}>
+        <div className="section-title">Help</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-1)" }}>
+              App tour
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
+              A 30-second walkthrough of Higgins Helper
+            </div>
+          </div>
+          <button className="btn-ghost" onClick={openTour} style={{ padding: "0.4rem 0.9rem", fontSize: "0.78rem", flexShrink: 0 }}>
+            Replay
+          </button>
+        </div>
+      </div>
 
       {/* Account */}
       <div className="glass" style={{ padding: "1rem", marginTop: "1rem" }}>
