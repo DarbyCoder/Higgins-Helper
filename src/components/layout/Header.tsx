@@ -2,9 +2,9 @@
  * @file src/components/layout/Header.tsx
  * @description Top app bar. Left side shows a context-aware greeting/title
  * that changes based on which page the user is on. Right side shows the
- * Higgins Helper "H" logo mark.
+ * Higgins Helper "H" logo mark, which replays the intro tour when tapped.
  */
-import { useLocation, Link } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useDateStore, useUIStore, useUserStore } from "@/stores";
 import type { MenuArea } from "@/stores/useUIStore";
 import { useAuth } from "@/firebase/AuthProvider";
@@ -100,6 +100,7 @@ export default function Header() {
   const selectedDate = useDateStore((s) => s.selectedDate);
   const profileName = useUserStore((s) => s.userProfile?.name);
   const menuArea = useUIStore((s) => s.menuArea);
+  const openTour = useUIStore((s) => s.openTour);
   const { user } = useAuth();
 
   // Prefer the Firebase auth displayName (always current), fall back to stored profile name
@@ -137,8 +138,15 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Clark U / Higgins Helper logo mark */}
-      <Link to="/profile" style={{ flexShrink: 0, display: "block" }}>
+      {/* Clark U / Higgins Helper logo mark — tapping it replays the intro tour */}
+      <button
+        type="button"
+        data-tour="header-logo"
+        onClick={openTour}
+        aria-label="Replay the app tour"
+        title="Replay the app tour"
+        style={{ flexShrink: 0, display: "block", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+      >
         <img
           src="/logo.png"
           alt="Higgins Helper Logo"
@@ -149,7 +157,7 @@ export default function Header() {
             display: "block",
           }}
         />
-      </Link>
+      </button>
     </header>
   );
 }

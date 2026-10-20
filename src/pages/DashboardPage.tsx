@@ -38,7 +38,7 @@ export default function DashboardPage() {
   return (
     <div className="page stagger">
       {/* ── Date navigation strip ── */}
-      <div className="mb-2">
+      <div className="mb-2" data-tour="date-picker">
         <DatePicker />
       </div>
 

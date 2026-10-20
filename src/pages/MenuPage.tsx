@@ -61,10 +61,10 @@ export default function MenuPage() {
   return (
     <div className="page">
       {/* Header controls */}
-      <div style={{ marginBottom: "0.85rem" }}>
-        <AreaSwitch />
-      </div>
-      <div style={{ marginBottom: "1rem" }}>
+      <div data-tour="menu-controls" style={{ marginBottom: "1rem" }}>
+        <div style={{ marginBottom: "0.85rem" }}>
+          <AreaSwitch />
+        </div>
         <MenuSearch />
       </div>
 

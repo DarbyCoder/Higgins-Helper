@@ -13,6 +13,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   onSnapshot,
   collection,
   query,
@@ -34,6 +35,8 @@ export interface FirestoreUserProfile {
   overridePresets?:       MacroTargets[];
   activeOverrideIndex?:   number;
   theme:                  "dark" | "light";
+  /** Highest intro tour version this user has finished or skipped. Missing = never seen. */
+  introVersionSeen?:      number;
   updatedAt:              unknown; // Firestore ServerTimestamp
 }
 
@@ -55,6 +58,18 @@ export async function setUserProfile(
     { ...data, updatedAt: serverTimestamp() },
     { merge: true },
   );
+}
+
+/**
+ * Records that the user has seen the intro tour up to `version`.
+ * updateDoc (not a merge-set) so it can never create a profile doc that has
+ * only this field — a doc without `profile` would break hydration.
+ */
+export async function setIntroVersionSeen(uid: string, version: number): Promise<void> {
+  await updateDoc(doc(db, "users", uid, "profile", "data"), {
+    introVersionSeen: version,
+    updatedAt:        serverTimestamp(),
+  });
 }
 
 /**

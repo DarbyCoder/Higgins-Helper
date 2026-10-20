@@ -9,6 +9,7 @@
  *   - Menu search/filter query
  *   - Dietary filter toggles
  *   - Toast notifications (for surfacing async errors to the user)
+ *   - Whether the intro tour is showing
  *
  * NOT persisted — all UI state resets on page load.
  */
@@ -50,6 +51,9 @@ interface UIState {
   /** Currently displayed toast notifications. */
   toasts: Toast[];
 
+  /** True while the intro tour overlay is showing. */
+  isTourOpen: boolean;
+
   // ── Actions ──────────────────────────────────────────────────────────────
 
   setMenuArea: (area: MenuArea) => void;
@@ -77,6 +81,12 @@ interface UIState {
 
   /** Dismisses a toast by its ID. */
   dismissToast: (id: string) => void;
+
+  /** Shows the intro tour (on first launch, or from Profile → Replay). */
+  openTour: () => void;
+
+  /** Hides the intro tour. Does not record it as seen — see markIntroSeen. */
+  closeTour: () => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -88,6 +98,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   searchQuery: "",
   activeDietaryFilters: [],
   toasts: [],
+  isTourOpen: false,
 
   setMenuArea: (area) => set({ menuArea: area }),
   setActiveLocation: (slug) => set({ activeLocationSlug: slug }),
@@ -139,5 +150,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   dismissToast: (id) => {
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
   },
+
+  openTour: () => set({ isTourOpen: true }),
+  closeTour: () => set({ isTourOpen: false }),
 }));
 

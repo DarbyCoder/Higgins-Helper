@@ -41,7 +41,7 @@ export default function DailyOverview({ totals, targets }: Props) {
   return (
     <div className="glass" style={{ padding: "1.25rem" }}>
       {/* ── Top: Ring + quick stats ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginBottom: "1.25rem" }}>
+      <div data-tour="today-summary" style={{ display: "flex", alignItems: "center", gap: "1.5rem", marginBottom: "1.25rem" }}>
         <CalorieRing consumed={totals.calories} target={targets.calories} size={150} thickness={18} />
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
           <QuickStat label="Goal" value={targets.calories.toLocaleString()} unit="cal" color="var(--color-text-3)" />
