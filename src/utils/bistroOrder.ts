@@ -1,14 +1,17 @@
 /**
  * @file src/utils/bistroOrder.ts
  * @description Turns the text of a Bistro order screenshot (Grubhub's "Your
- * pickup order" or "Review your pickup order" screen, read by OCR) into
- * dishes, and matches each dish's components to that day's Bistro menu.
+ * pickup order", "Review your pickup order" or "View order" screen, read by OCR)
+ * into dishes, and matches each dish's components to that day's Bistro menu.
  *
- * Both screens list the order the same way: a dish name, then its components.
+ * All three screens list the order the same way: a dish name, then its components.
  *   Review screen: "1 Rice Bowl   1M" then components separated by commas,
  *                  wrapped over several lines.
  *   Order screen:  "Rice Bowl  🗑 1 +" then one component per line, then the
  *                  dish's price ("$0.00").
+ *   View order:    "1 Rice Bowl" under "Order information", then one bulleted
+ *                  component per line (OCR reads the bullets as », + or =),
+ *                  with no prices.
  */
 import type { DailyMenuResponse, MenuItem } from "@/types";
 
@@ -36,11 +39,15 @@ export interface MatchedDish {
 
 /** "1M" is one meal swipe; OCR sometimes reads the 1 as i, I or l. */
 const PRICE = String.raw`(?:[0-9iIl]+\s*M|\$\s?\d+[.,]\d{2})`;
-const START_LINE = /^(your order|items:\s*\d+)$/i;
-const END_LINE = /subtotal|^total\b|sales tax|place your|continue to checkout/i;
+const START_LINE = /^(your order|items:\s*\d+|order information)$/i;
+const END_LINE = /subtotal|^total\b|sales tax|place your|continue to checkout|view receipt|your order from/i;
 const PRICE_LINE = new RegExp(`^${PRICE}$`);
 /** Review screen dish line: quantity, name, price ("1Rice Bowl 1M"). */
 const QTY_NAME_PRICE = new RegExp(`^(\\d+)\\s*x?\\s*([A-Za-z].*?)\\s+${PRICE}$`);
+/** View order dish line: quantity, name, no price ("1 Rice Bowl"). */
+const QTY_NAME = /^(\d+)\s*x?\s+([A-Za-z].*)$/;
+/** A bullet before a component, as OCR reads it ("» Guacamole"). */
+const BULLET = /^[^\w\s]{1,2}\s+/;
 /** Order screen dish line: name, trash icon read as a stray mark, quantity, "+". */
 const NAME_STEPPER = /^(.*?[A-Za-z].*?)(?:\s+\S{1,2})?\s+(\d+)\s*\+?$/;
 /** Lines that add no food: packaging, and removals like "No Pickles". */
@@ -50,9 +57,11 @@ const NOT_FOOD = /\bto go\b|reusable container|utensil|napkin|\bbag\b|^(no|witho
 export function parseBistroOrder(text: string): ParsedDish[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-  // Keep only the order section: after "Your order" / "Items: N", up to the totals
+  // Keep only the order section: after "Your order" / "Items: N" / "Order information", up to the totals
   let start = lines.findIndex((l) => START_LINE.test(l));
   if (start === -1) start = lines.findIndex((l) => /bistro meal swipe/i.test(l));
+  // The View order screen has no prices, so every "1 Rice Bowl" line is a new dish
+  const viewOrder = start !== -1 && /^order information$/i.test(lines[start]!);
   let section = lines.slice(start + 1);
   const end = section.findIndex((l) => END_LINE.test(l));
   if (end !== -1) section = section.slice(0, end);
@@ -60,7 +69,7 @@ export function parseBistroOrder(text: string): ParsedDish[] {
   const blocks: { header: string; quantity: number; body: string[] }[] = [];
   let current: (typeof blocks)[number] | null = null;
   for (const line of section) {
-    const qtyFirst = line.match(QTY_NAME_PRICE);
+    const qtyFirst = line.match(QTY_NAME_PRICE) ?? (viewOrder ? line.match(QTY_NAME) : null);
     if (qtyFirst) {
       current = { header: qtyFirst[2]!, quantity: Number(qtyFirst[1]), body: [] };
       blocks.push(current);
@@ -73,7 +82,7 @@ export function parseBistroOrder(text: string): ParsedDish[] {
         : { header: line, quantity: 1, body: [] };
       blocks.push(current);
     } else {
-      current.body.push(line);
+      current.body.push(line.replace(BULLET, ""));
     }
   }
 

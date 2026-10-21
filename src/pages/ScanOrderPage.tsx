@@ -1,7 +1,7 @@
 /**
  * @file src/pages/ScanOrderPage.tsx
  * @description Log a Bistro order from a screenshot of Grubhub's "Your pickup
- * order" or "Review your pickup order" screen.
+ * order", "Review your pickup order" or "View order" screen.
  *
  * The screenshot is read on the device with Tesseract OCR (its engine and
  * English data load from the jsDelivr CDN the first time), so the image —
@@ -143,8 +143,8 @@ export default function ScanOrderPage() {
             📷 Choose Screenshot
           </button>
           <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-text-3)", lineHeight: 1.5 }}>
-            Take a screenshot of your Bistro order in Grubhub, on the “Your pickup order” or
-            “Review your pickup order” screen. Each item is matched to the Bistro menu for{" "}
+            Take a screenshot of your Bistro order in Grubhub, on the “Your pickup order”,
+            “Review your pickup order” or “View order” screen. Each item is matched to the Bistro menu for{" "}
             <strong>{selectedDate}</strong> so you can check it before it’s logged. The screenshot
             is read on your phone and isn’t uploaded.
           </p>
