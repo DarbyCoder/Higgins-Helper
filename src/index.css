@@ -8,14 +8,14 @@
   --color-surface-2:  #1a1a28;
   --color-surface-3:  #232336;
 
-  /* Clark University Crimson palette */
-  --color-primary:       #c41e3a;
-  --color-primary-light: #e63a56;
-  --color-primary-dim:   #7a1224;
-  --color-primary-ghost: rgba(196,30,58,0.12);
+  /* Teal palette, from the app icon (#14A085 → #0A5C4E) */
+  --color-primary:       #14A085;
+  --color-primary-light: #2CC5A5;
+  --color-primary-dim:   #0A5C4E;
+  --color-primary-ghost: rgba(20,160,133,0.12);
 
   /* Macro accent colors */
-  --color-cal:    #c41e3a;
+  --color-cal:    #EC4899;
   --color-protein:#10b981;
   --color-carbs:  #3b82f6;
   --color-fat:    #f59e0b;
@@ -58,7 +58,7 @@
   --color-text-3:     #808099;
   --color-border:     rgba(0,0,0,0.08);
   --color-border-2:   rgba(0,0,0,0.14);
-  --color-primary-ghost: rgba(196,30,58,0.08);
+  --color-primary-ghost: rgba(20,160,133,0.08);
 }
 
 /* ─── Light mode component tweaks ──────────────────────────────────────────── */
@@ -74,6 +74,10 @@
 [data-theme="light"] html,
 [data-theme="light"] body {
   background: var(--color-bg);
+}
+/* The bright teal accent is too pale for text on white; use a deeper shade */
+[data-theme="light"] {
+  --color-primary-light: #0E8770;
 }
 
 /* ─── Base Styles ──────────────────────────────────────────────────────────── */
@@ -116,7 +120,7 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   border-radius: var(--radius-md);
 }
 
-/* Crimson gradient button */
+/* Teal gradient button */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -131,9 +135,9 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 20px rgba(196,30,58,0.35);
+  box-shadow: 0 4px 20px rgba(20,160,133,0.35);
 }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(196,30,58,0.5); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(20,160,133,0.5); }
 .btn-primary:active { transform: translateY(0); }
 
 /* Ghost button */
@@ -231,7 +235,7 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
 .divider { border: none; border-top: 1px solid var(--color-border); margin: 1rem 0; }
 
 /* ─── Glow Effects ──────────────────────────────────────────────────────────── */
-.glow-primary { box-shadow: 0 0 40px rgba(196,30,58,0.2); }
+.glow-primary { box-shadow: 0 0 40px rgba(20,160,133,0.2); }
 .glow-green   { box-shadow: 0 0 40px rgba(16,185,129,0.2); }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -360,7 +364,7 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
 
 /* ─── Macro Colors as CSS custom props (for D3 / inline styles) ────────────── */
 :root {
-  --macro-cal:     #c41e3a;
+  --macro-cal:     #EC4899;
   --macro-protein: #10b981;
   --macro-carbs:   #3b82f6;
   --macro-fat:     #f59e0b;

@@ -35,7 +35,7 @@ export default function LogPage() {
           <div className="section-title">Daily Totals</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
             {([
-              { label: "Calories", val: `${totals.calories}`, target: `/${macroTargets.calories}`, color: "#c41e3a" },
+              { label: "Calories", val: `${totals.calories}`, target: `/${macroTargets.calories}`, color: "#EC4899" },
               { label: "Protein",  val: `${totals.protein.toFixed(0)}g`, target: `/${macroTargets.protein}g`, color: "#10b981" },
               { label: "Carbs",    val: `${totals.totalCarbs.toFixed(0)}g`, target: `/${macroTargets.totalCarbs}g`, color: "#3b82f6" },
             ] as const).map(({ label, val, target, color }) => (
@@ -125,7 +125,7 @@ export default function LogPage() {
           aria-label="Add custom food"
           style={{
             gap: "0.4rem", padding: "0.65rem 1.1rem", fontSize: "0.82rem",
-            boxShadow: "0 8px 32px rgba(196,30,58,0.45)",
+            boxShadow: "0 8px 32px rgba(20,160,133,0.45)",
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">

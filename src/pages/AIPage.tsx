@@ -78,7 +78,7 @@ export default function AIPage() {
               background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "1.5rem", fontWeight: 800, color: "#fff",
-              marginBottom: "0.5rem", boxShadow: "0 4px 12px rgba(196, 30, 58, 0.3)"
+              marginBottom: "0.5rem", boxShadow: "0 4px 12px rgba(20, 160, 133, 0.3)"
             }}>AI</div>
             <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, textAlign: "center" }}>
               Hi{userProfile?.name ? `, ${userProfile.name}` : ""}! I'm your AI nutritionist.

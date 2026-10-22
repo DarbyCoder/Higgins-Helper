@@ -38,8 +38,8 @@ self.addEventListener("push", function (event) {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/logo-square.jpg",
-      badge: "/logo-square.jpg",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/badge-96.png",
       tag: "higgins-meal-reminder",
       renotify: true,
       data: { url: data.url || "/log" },
