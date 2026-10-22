@@ -2,7 +2,7 @@
  * @file src/components/layout/Header.tsx
  * @description Top app bar. Left side shows a context-aware greeting/title
  * that changes based on which page the user is on. Right side shows the
- * Higgins Helper "H" logo mark.
+ * Higgins Helper app logo.
  */
 import { useLocation, Link } from "react-router-dom";
 import { useDateStore, useUIStore, useUserStore } from "@/stores";
@@ -137,13 +137,13 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Clark U / Higgins Helper logo mark */}
+      {/* Higgins Helper logo mark */}
       <Link to="/profile" style={{ flexShrink: 0, display: "block" }}>
         <img
           src="/logo.png"
           alt="Higgins Helper Logo"
           style={{
-            height: 48, // slightly larger to accommodate the circular seal
+            height: 48,
             width: "auto",
             objectFit: "contain",
             display: "block",

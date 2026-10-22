@@ -158,7 +158,7 @@ export default function LoginPage() {
           {/* Logo / branding */}
           <div style={{ textAlign: "center", marginBottom: "1.75rem" }}>
             <img
-              src="/logo-square.jpg"
+              src="/logo.png"
               alt="Higgins Helper"
               style={{ width: 56, height: 56, borderRadius: "var(--radius-md)", marginBottom: "0.75rem" }}
             />

@@ -94,8 +94,8 @@ export default function ProfilePage() {
         // new Notification() throws TypeError on Android Chrome and iOS Safari.
         await reg.showNotification("Higgins Helper 🥗", {
           body: "Meal reminders enabled! You'll be reminded to log breakfast, lunch, and dinner.",
-          icon: "/logo-square.jpg",
-          badge: "/logo-square.jpg",
+          icon: "/icon-192.png",
+          badge: "/badge-96.png",
           tag: "reminder-test",
           data: { url: "/log" },
         });

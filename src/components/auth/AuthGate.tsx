@@ -32,7 +32,7 @@ function Splash({ message = "Loading…" }: { message?: string }) {
       background: "var(--color-bg)", gap: "1rem",
     }}>
       <img
-        src="/logo-square.jpg"
+        src="/logo.png"
         alt="Higgins Helper"
         style={{ width: 64, height: 64, borderRadius: "var(--radius-md)", opacity: 0.9 }}
       />
