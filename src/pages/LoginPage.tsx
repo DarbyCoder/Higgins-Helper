@@ -108,7 +108,7 @@ export default function LoginPage() {
       <div style={{
         position: "absolute", top: "-120px", left: "-80px",
         width: 380, height: 380, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(140,10,10,0.18) 0%, transparent 70%)",
+        background: "radial-gradient(circle, color-mix(in srgb, var(--color-primary) 18%, transparent) 0%, transparent 70%)",
         pointerEvents: "none",
       }} />
       <div style={{
@@ -128,7 +128,7 @@ export default function LoginPage() {
                 background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: "2rem", fontWeight: 800, color: "#fff",
-                boxShadow: "0 4px 16px rgba(196, 30, 58, 0.35)"
+                boxShadow: "0 4px 16px color-mix(in srgb, var(--color-primary) 35%, transparent)"
               }}>AI</div>
             ) : (
               <div style={{ fontSize: "4.5rem", marginBottom: "1.5rem" }}>

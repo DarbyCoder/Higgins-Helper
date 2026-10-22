@@ -6,7 +6,7 @@
   "id": "/",
   "display": "standalone",
   "background_color": "#09090f",
-  "theme_color": "#c41e3a",
+  "theme_color": "#0f8a70",
   "orientation": "portrait",
   "categories": ["food", "health", "education"],
   "icons": [

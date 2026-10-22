@@ -35,7 +35,7 @@ export default function AreaSwitch() {
         width: "calc(50% - 3px)",
         borderRadius: "var(--radius-full)",
         background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
-        boxShadow: "0 2px 12px rgba(196,30,58,0.35)",
+        boxShadow: "0 2px 12px color-mix(in srgb, var(--color-primary) 35%, transparent)",
         transform: `translateX(${activeIndex * 100}%)`,
         transition: "transform 0.25s cubic-bezier(0.34,1.56,0.64,1)",
       }} />

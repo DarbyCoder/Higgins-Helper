@@ -406,7 +406,7 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
           }}>
             <div style={{
               width: "65%", aspectRatio: "2/1",
-              border: "2px solid rgba(196,30,58,0.9)",
+              border: "2px solid color-mix(in srgb, var(--color-primary) 90%, transparent)",
               borderRadius: "var(--radius-md)",
               boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
             }}>
@@ -571,7 +571,7 @@ function ConfirmMode({ draft, servings, setServings, mealSlot, setMealSlot, onAd
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem", marginTop: "0.85rem" }}>
           {([
-            { label: "Cal",     val: scaled.calories,   color: "#c41e3a" },
+            { label: "Cal",     val: scaled.calories,   color: "#0f8a70" },
             { label: "Protein", val: `${scaled.protein}g`,  color: "#10b981" },
             { label: "Carbs",   val: `${scaled.totalCarbs}g`, color: "#3b82f6" },
             { label: "Fat",     val: `${scaled.totalFat}g`,  color: "#f59e0b" },

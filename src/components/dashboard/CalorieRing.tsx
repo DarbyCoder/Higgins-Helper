@@ -19,7 +19,7 @@ function ringColor(pct: number): string {
   if (pct >= 1.05) return "#ef4444"; // Over by >5% → red
   if (pct >= 0.9)  return "#f59e0b"; // 90-105% → amber
   if (pct >= 0.7)  return "#10b981"; // 70-90% → green
-  return "#c41e3a";                   // <70% → crimson (primary)
+  return "#0f8a70";                   // <70% → teal (primary)
 }
 
 export default function CalorieRing({ consumed, target, size = 180, thickness = 22 }: Props) {

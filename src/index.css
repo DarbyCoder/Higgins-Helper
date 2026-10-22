@@ -8,14 +8,14 @@
   --color-surface-2:  #1a1a28;
   --color-surface-3:  #232336;
 
-  /* Clark University Crimson palette */
-  --color-primary:       #c41e3a;
-  --color-primary-light: #e63a56;
-  --color-primary-dim:   #7a1224;
-  --color-primary-ghost: rgba(196,30,58,0.12);
+  /* Teal palette (matches the app icon) */
+  --color-primary:       #0f8a70;
+  --color-primary-light: #1aa88b;
+  --color-primary-dim:   #0a6650;
+  --color-primary-ghost: rgba(26,168,139,0.14);
 
   /* Macro accent colors */
-  --color-cal:    #c41e3a;
+  --color-cal:    #0f8a70;
   --color-protein:#10b981;
   --color-carbs:  #3b82f6;
   --color-fat:    #f59e0b;
@@ -58,7 +58,10 @@
   --color-text-3:     #808099;
   --color-border:     rgba(0,0,0,0.08);
   --color-border-2:   rgba(0,0,0,0.14);
-  --color-primary-ghost: rgba(196,30,58,0.08);
+  --color-primary:       #0d7a63;
+  --color-primary-light: #0f8a70;
+  --color-primary-dim:   #0a6650;
+  --color-primary-ghost: rgba(15,138,112,0.10);
 }
 
 /* ─── Light mode component tweaks ──────────────────────────────────────────── */
@@ -116,7 +119,7 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   border-radius: var(--radius-md);
 }
 
-/* Crimson gradient button */
+/* Teal gradient button */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -131,9 +134,9 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 20px rgba(196,30,58,0.35);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(196,30,58,0.5); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px color-mix(in srgb, var(--color-primary) 50%, transparent); }
 .btn-primary:active { transform: translateY(0); }
 
 /* Ghost button */
@@ -231,7 +234,7 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
 .divider { border: none; border-top: 1px solid var(--color-border); margin: 1rem 0; }
 
 /* ─── Glow Effects ──────────────────────────────────────────────────────────── */
-.glow-primary { box-shadow: 0 0 40px rgba(196,30,58,0.2); }
+.glow-primary { box-shadow: 0 0 40px color-mix(in srgb, var(--color-primary) 20%, transparent); }
 .glow-green   { box-shadow: 0 0 40px rgba(16,185,129,0.2); }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -360,7 +363,7 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
 
 /* ─── Macro Colors as CSS custom props (for D3 / inline styles) ────────────── */
 :root {
-  --macro-cal:     #c41e3a;
+  --macro-cal:     #0f8a70;
   --macro-protein: #10b981;
   --macro-carbs:   #3b82f6;
   --macro-fat:     #f59e0b;
