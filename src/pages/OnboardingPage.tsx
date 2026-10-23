@@ -393,7 +393,7 @@ export default function OnboardingPage() {
                   background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: "1.75rem", fontWeight: 800, color: "#fff",
-                  boxShadow: "0 4px 12px rgba(196, 30, 58, 0.3)"
+                  boxShadow: "0 4px 12px rgba(20, 160, 133, 0.3)"
                 }}>AI</div>
                 <h2 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "0.5rem" }}>AI Nutritionist</h2>
                 <p style={{ color: "var(--color-text-3)", fontSize: "0.95rem", lineHeight: 1.5 }}>

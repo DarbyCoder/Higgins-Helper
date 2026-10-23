@@ -305,7 +305,7 @@ export default function LoginPage() {
                       background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: "2rem", fontWeight: 800, color: "#fff",
-                      boxShadow: "0 4px 16px rgba(196, 30, 58, 0.35)"
+                      boxShadow: "0 4px 16px rgba(20, 160, 133, 0.35)"
                     }}>AI</div>
                   ) : (
                     <div className="wt-emoji" style={{ fontSize: "4.5rem", marginBottom: "1.5rem" }}>
