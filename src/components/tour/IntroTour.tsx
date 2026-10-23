@@ -300,12 +300,12 @@ function TourOverlay() {
         }} />
       )}
 
-      {/* Highlighted element: crimson ring with a glow */}
+      {/* Highlighted element: teal ring with a glow */}
       {hole && (
         <div aria-hidden style={{
           position: "fixed", ...hole,
           borderRadius: 14,
-          boxShadow: "0 0 0 2px var(--color-primary-light), 0 0 24px 4px rgba(196,30,58,0.45)",
+          boxShadow: "0 0 0 2px var(--color-primary-light), 0 0 24px 4px rgba(20,160,133,0.45)",
           pointerEvents: "none",
         }} />
       )}
@@ -365,7 +365,7 @@ function TourOverlay() {
                 <img src={WELCOME.photo} alt={WELCOME.author} style={{
                   width: 84, height: 84, borderRadius: "50%", objectFit: "cover",
                   border: "3px solid var(--color-primary)",
-                  boxShadow: "0 4px 16px rgba(196,30,58,0.35)",
+                  boxShadow: "0 4px 16px rgba(20,160,133,0.35)",
                   margin: "0 auto 1rem",
                 }} />
                 <h2 id="tour-title" style={{ fontSize: "1.3rem", fontWeight: 800, margin: "0 0 0.6rem" }}>

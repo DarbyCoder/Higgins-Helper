@@ -35,7 +35,7 @@ export default function AppShell({ children }: Props) {
       {/* Ambient background glows */}
       <div aria-hidden style={{
         position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(196,30,58,0.15) 0%, transparent 70%)",
+        background: "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(20,160,133,0.15) 0%, transparent 70%)",
       }} />
       <div aria-hidden style={{
         position: "fixed", bottom: 0, left: "30%", width: "40%", height: "30%",

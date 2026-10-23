@@ -18,7 +18,7 @@ export const INTRO_VERSION = 1;
 
 export const WELCOME = {
   /** Square photo shown in a circle. Drop yours in public/intro/ and point this at it. */
-  photo: "/logo-square.jpg",
+  photo: "/icon.svg",
   author: "Nick",
   message:
     "I built Higgins Helper so you can see exactly what's in the food at Higgins " +

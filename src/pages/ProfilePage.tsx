@@ -94,8 +94,8 @@ export default function ProfilePage() {
         // new Notification() throws TypeError on Android Chrome and iOS Safari.
         await reg.showNotification("Higgins Helper 🥗", {
           body: "Meal reminders enabled! You'll be reminded to log breakfast, lunch, and dinner.",
-          icon: "/logo-square.jpg",
-          badge: "/logo-square.jpg",
+          icon: "/icons/icon-192.png",
+          badge: "/icons/badge-96.png",
           tag: "reminder-test",
           data: { url: "/log" },
         });
@@ -262,7 +262,7 @@ export default function ProfilePage() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
           {([
-            { label: "Calories", val: previewTargets.calories, unit: "cal", color: "#c41e3a" },
+            { label: "Calories", val: previewTargets.calories, unit: "cal", color: "#EC4899" },
             { label: "Protein", val: previewTargets.protein, unit: "g", color: "#10b981" },
             { label: "Carbs", val: previewTargets.totalCarbs, unit: "g", color: "#3b82f6" },
             { label: "Fat", val: previewTargets.totalFat, unit: "g", color: "#f59e0b" },
@@ -304,7 +304,7 @@ export default function ProfilePage() {
               position: "relative", cursor: "pointer",
               transition: "background 0.2s",
               flexShrink: 0,
-              boxShadow: macroTargetsManuallySet ? "0 0 10px rgba(196,30,58,0.35)" : "none",
+              boxShadow: macroTargetsManuallySet ? "0 0 10px rgba(20,160,133,0.35)" : "none",
             }}
             aria-label="Toggle goal overrides"
           >
@@ -352,7 +352,7 @@ export default function ProfilePage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
               {([
-                { label: "Calories (cal)", key: "calories" as const, color: "#c41e3a" },
+                { label: "Calories (cal)", key: "calories" as const, color: "#EC4899" },
                 { label: "Protein (g)", key: "protein" as const, color: "#10b981" },
                 { label: "Carbs (g)", key: "totalCarbs" as const, color: "#3b82f6" },
                 { label: "Fat (g)", key: "totalFat" as const, color: "#f59e0b" },

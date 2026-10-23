@@ -2,7 +2,7 @@
  * @file src/components/layout/Header.tsx
  * @description Top app bar. Left side shows a context-aware greeting/title
  * that changes based on which page the user is on. Right side shows the
- * Higgins Helper "H" logo mark, which replays the intro tour when tapped.
+ * app icon, which replays the intro tour when tapped.
  */
 import { useLocation } from "react-router-dom";
 import { useDateStore, useUIStore, useUserStore } from "@/stores";
@@ -131,7 +131,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Clark U / Higgins Helper logo mark — tapping it replays the intro tour */}
+      {/* App icon — tapping it replays the intro tour */}
       <button
         type="button"
         data-tour="header-logo"
@@ -141,14 +141,9 @@ export default function Header() {
         style={{ flexShrink: 0, display: "block", background: "none", border: "none", padding: 0, cursor: "pointer" }}
       >
         <img
-          src="/logo.png"
-          alt="Higgins Helper Logo"
-          style={{
-            height: 48, // slightly larger to accommodate the circular seal
-            width: "auto",
-            objectFit: "contain",
-            display: "block",
-          }}
+          src="/icon.svg"
+          alt="Higgins Helper"
+          style={{ width: 40, height: 40, borderRadius: "22%", display: "block" }}
         />
       </button>
     </header>
