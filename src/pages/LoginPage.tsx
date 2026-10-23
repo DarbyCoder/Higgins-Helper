@@ -238,7 +238,7 @@ export default function LoginPage() {
                 transform: `translateX(${pillPos * 100}%)`,
                 borderRadius: "var(--radius-full)",
                 background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
-                boxShadow: "0 2px 12px rgba(196,30,58,0.35)",
+                boxShadow: "0 2px 12px rgba(20,160,133,0.35)",
               }}
             />
             {WALKTHROUGH_SLIDES.map((slide, i) => (
