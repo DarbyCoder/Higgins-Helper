@@ -208,7 +208,7 @@ export default function LoginPage() {
       <div style={{
         position: "absolute", top: "-120px", left: "-80px",
         width: 380, height: 380, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(140,10,10,0.18) 0%, transparent 70%)",
+        background: "radial-gradient(circle, rgba(10,92,78,0.28) 0%, transparent 70%)",
         pointerEvents: "none",
       }} />
       <div style={{
@@ -244,7 +244,7 @@ export default function LoginPage() {
                 transform: `translateX(${pillPos * 100}%)`,
                 borderRadius: "var(--radius-full)",
                 background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
-                boxShadow: "0 2px 12px rgba(196,30,58,0.35)",
+                boxShadow: "0 2px 12px rgba(20,160,133,0.35)",
               }}
             />
             {WALKTHROUGH_SLIDES.map((slide, i) => (
@@ -338,9 +338,9 @@ export default function LoginPage() {
           {/* Logo / branding */}
           <div style={{ textAlign: "center", marginBottom: "1.75rem" }}>
             <img
-              src="/logo-square.jpg"
+              src="/icon.svg"
               alt="Higgins Helper"
-              style={{ width: 56, height: 56, borderRadius: "var(--radius-md)", marginBottom: "0.75rem" }}
+              style={{ width: 56, height: 56, borderRadius: "22%", marginBottom: "0.75rem" }}
             />
             <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800 }}>Higgins Helper</h1>
             <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", color: "var(--color-text-3)" }}>

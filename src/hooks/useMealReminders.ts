@@ -83,8 +83,8 @@ async function showMealReminder(
       const reg = await navigator.serviceWorker.ready;
       await reg.showNotification(title, {
         body,
-        icon: "/logo-square.jpg",
-        badge: "/logo-square.jpg",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/badge-96.png",
         // Cast to any to allow non-standard but widely supported fields
         // (renotify, data) that the TS lib doesn't model in NotificationOptions
         tag: `meal-reminder-${label.toLowerCase()}`,

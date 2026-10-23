@@ -237,7 +237,7 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
             marginBottom: "1rem",
           }}>
             {([
-              { label: "Cal",     value: Math.round(item.calories * servings), color: "#c41e3a" },
+              { label: "Cal",     value: Math.round(item.calories * servings), color: "#EC4899" },
               { label: "Protein", value: `${(item.protein * servings).toFixed(1)}g`, color: "#10b981" },
               { label: "Carbs",   value: `${(item.totalCarbs * servings).toFixed(1)}g`, color: "#3b82f6" },
               { label: "Fat",     value: `${(item.totalFat * servings).toFixed(1)}g`, color: "#f59e0b" },
