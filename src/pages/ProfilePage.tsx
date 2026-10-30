@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useUserStore, calculateMacroTargets, useThemeStore } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
 import { LOCAL_MODE } from "@/firebase/localMode";
+import { useInstallPrompt, isIOS } from "@/hooks/useInstallPrompt";
 import type { UserProfile, ActivityLevel, WeightGoal, MealReminderPrefs } from "@/types";
 
 /** Local test mode: wipe this browser's saved data and start over at onboarding. */
@@ -47,6 +48,14 @@ export default function ProfilePage() {
   const { theme, toggleTheme } = useThemeStore();
   const { user, signOut } = useAuth();
   const isDark = theme === "dark";
+  const { isInstallable, isInstalled, promptInstall } = useInstallPrompt();
+  const installHint = isInstalled
+    ? "Installed on this device"
+    : isInstallable
+      ? "Works offline and opens like an app"
+      : isIOS
+        ? "In Safari, tap Share, then Add to Home Screen"
+        : "Use your browser's menu to install it, if it offers that";
 
   // Form state seeded from existing profile
   const [form, setForm] = useState<Partial<UserProfile>>({
@@ -530,6 +539,26 @@ export default function ProfilePage() {
               fontSize: "0.7rem",
             }}>{isDark ? "🌙" : "☀️"}</span>
           </button>
+        </div>
+      </div>
+
+      {/* ── Install ── */}
+      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
+        <div className="section-title">App</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
+              📲 Install Higgins Helper
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
+              {installHint}
+            </div>
+          </div>
+          {isInstallable && (
+            <button className="btn-ghost" onClick={promptInstall} style={{ padding: "0.4rem 0.9rem", fontSize: "0.78rem", flexShrink: 0 }}>
+              Install
+            </button>
+          )}
         </div>
       </div>
 
