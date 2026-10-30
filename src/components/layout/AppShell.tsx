@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import { useUIStore } from "@/stores/useUIStore";
-import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { LOCAL_MODE } from "@/firebase/localMode";
 
 interface Props { children: ReactNode; }
@@ -17,7 +16,6 @@ interface Props { children: ReactNode; }
 export default function AppShell({ children }: Props) {
   const { toasts, dismissToast } = useUIStore();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const { isInstallable, promptInstall } = useInstallPrompt();
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -62,27 +60,6 @@ export default function AppShell({ children }: Props) {
           </div>
         )}
         <Header />
-        {isInstallable && (
-          <div style={{
-            background: "var(--color-primary-ghost)",
-            border: "1px solid var(--color-primary)",
-            margin: "0 1rem 0.5rem", padding: "0.75rem",
-            borderRadius: "var(--radius-md)",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-          }}>
-            <span style={{ fontSize: "0.8rem", color: "var(--color-text-1)", fontWeight: 500 }}>
-              Install Higgins Helper for offline access!
-            </span>
-            <button onClick={promptInstall} style={{
-              background: "var(--color-primary)", color: "#fff",
-              border: "none", borderRadius: "var(--radius-sm)",
-              padding: "0.4rem 0.75rem", fontSize: "0.75rem",
-              fontWeight: 600, cursor: "pointer",
-            }}>
-              Install
-            </button>
-          </div>
-        )}
         <main style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
           {children}
         </main>
