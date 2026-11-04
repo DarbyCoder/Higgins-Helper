@@ -10,6 +10,7 @@
  * and the rest of the menu loads normally.
  */
 import { Component, type ReactNode } from "react";
+import { AlertIcon } from "@/components/icons";
 
 interface Props {
   locationName: string;
@@ -51,7 +52,7 @@ export class LocationCardErrorBoundary extends Component<Props, State> {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ fontSize: "1.1rem" }}>⚠️</span>
+            <AlertIcon size={20} style={{ color: "#f87171", flexShrink: 0 }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
                 {this.props.locationName}

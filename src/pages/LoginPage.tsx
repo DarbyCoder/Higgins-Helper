@@ -7,6 +7,7 @@
 
 import { useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { useAuth } from "@/firebase/AuthProvider";
+import { BowlIcon, TargetIcon, UtensilsIcon } from "@/components/icons";
 
 // Fraction of the slide width a swipe must travel to switch tabs
 const SWIPE_THRESHOLD = 0.15;
@@ -70,19 +71,19 @@ export default function LoginPage() {
   const WALKTHROUGH_SLIDES = [
     {
       tab: "Welcome",
-      emoji: "🥗",
+      Icon: BowlIcon,
       title: "Welcome to Higgins Helper",
       text: "The ultimate companion for eating smart at Clark University.",
     },
     {
       tab: "Menus",
-      emoji: "🍽️",
+      Icon: UtensilsIcon,
       title: "Live Dining Menus",
       text: "See exactly what's serving at Higgins today, complete with full nutrition facts and ingredients.",
     },
     {
       tab: "Macros",
-      emoji: "🎯",
+      Icon: TargetIcon,
       title: "Track Your Macros",
       text: "Log your meals with a single tap and easily hit your daily protein and calorie goals.",
     },
@@ -293,8 +294,13 @@ export default function LoginPage() {
                   className={`wt-slide${i === step ? " is-active" : ""}`}
                   style={{ flex: "0 0 100%", padding: "0 1.5rem", textAlign: "center" }}
                 >
-                  <div className="wt-emoji" style={{ fontSize: "4.5rem", marginBottom: "1.5rem" }}>
-                    {slide.emoji}
+                  <div className="wt-emoji" aria-hidden style={{
+                    width: 88, height: 88, borderRadius: 28, margin: "0 auto 1.5rem",
+                    display: "grid", placeItems: "center", color: "#fff",
+                    background: "linear-gradient(135deg, #1CB394, #0A5C4E)",
+                    boxShadow: "0 12px 36px rgba(20,160,133,0.4)",
+                  }}>
+                    <slide.Icon size={42} strokeWidth={1.7} />
                   </div>
 
                   <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "1rem", color: "var(--color-text-1)" }}>

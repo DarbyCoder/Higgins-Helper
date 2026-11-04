@@ -20,6 +20,13 @@ import {
   parseBistroOrder,
   type MatchedDish,
 } from "@/utils/bistroOrder";
+import { CameraIcon, CheckIcon, ChevronLeftIcon, MinusIcon, PlusIcon, SearchIcon, XIcon } from "@/components/icons";
+import { formatWhole } from "@/utils/format";
+
+/** "2026-11-04" → "Wednesday, November 4". */
+function prettyDate(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+}
 
 const MEAL_SLOTS: { value: MealSlot; label: string }[] = [
   { value: "breakfast", label: "Breakfast" },
@@ -112,16 +119,14 @@ export default function ScanOrderPage() {
 
   return (
     <div className="page">
-      {/* Back header */}
+      {/* Back button and the step's name (the header names the page) */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem" }}>
         <button className="btn-icon" onClick={() => navigate(-1)} aria-label="Go back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <polyline points="15,18 9,12 15,6" />
-          </svg>
+          <ChevronLeftIcon size={18} />
         </button>
-        <h1 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800 }}>
-          {phase.name === "review" ? "Check Your Order" : "Scan Bistro Order"}
-        </h1>
+        <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>
+          {phase.name === "review" ? "Check your order" : "Log your Bistro order"}
+        </h2>
       </div>
 
       <input
@@ -140,12 +145,13 @@ export default function ScanOrderPage() {
             </div>
           )}
           <button className="btn-primary" onClick={() => fileInput.current?.click()} style={{ width: "100%" }}>
-            📷 Choose Screenshot
+            <CameraIcon size={17} />
+            Choose Screenshot
           </button>
           <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-text-3)", lineHeight: 1.5 }}>
             Take a screenshot of your Bistro order in Grubhub, on the “Your pickup order”,
             “Review your pickup order” or “View order” screen. Each item is matched to the Bistro menu for{" "}
-            <strong>{selectedDate}</strong> so you can check it before it’s logged. The screenshot
+            <strong>{prettyDate(selectedDate)}</strong> so you can check it before it’s logged. The screenshot
             is read on your phone and isn’t uploaded.
           </p>
         </div>
@@ -153,7 +159,7 @@ export default function ScanOrderPage() {
 
       {phase.name === "reading" && (
         <div className="glass" style={{ padding: "1.5rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔍</div>
+          <SearchIcon size={30} style={{ color: "var(--color-primary-light)", display: "block", margin: "0 auto 0.6rem" }} />
           <div style={{ fontWeight: 700 }}>Reading your order…</div>
           <div style={{ marginTop: "0.75rem", height: 6, borderRadius: 3, background: "var(--color-surface-3)", overflow: "hidden" }}>
             <div style={{ width: `${Math.round(phase.progress * 100)}%`, height: "100%", background: "var(--color-primary)", transition: "width 0.2s" }} />
@@ -165,7 +171,7 @@ export default function ScanOrderPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
           {!phase.menuFound && (
             <div className="glass-2" style={{ padding: "0.85rem 1rem", fontSize: "0.82rem", color: "var(--color-warning)" }}>
-              No Bistro menu found for {selectedDate}, so nothing could be matched. Pick the day
+              No Bistro menu found for {prettyDate(selectedDate)}, so nothing could be matched. Pick the day
               you ordered on the Log tab and try again.
             </div>
           )}
@@ -183,20 +189,24 @@ export default function ScanOrderPage() {
                     onChange={(e) => setIncluded((prev) => prev.map((v, j) => (j === i ? e.target.checked : v)))}
                   />
                   <span style={{ flex: 1, fontWeight: 700 }}>{dish.name}</span>
-                  <span style={{ fontWeight: 800, color: "var(--color-primary)" }}>
-                    {item ? `${Math.round(item.calories * qty)} cal` : "—"}
+                  <span style={{ fontWeight: 800, color: "var(--color-text-1)" }}>
+                    {item ? `${formatWhole(item.calories * qty)} cal` : "—"}
                   </span>
                 </label>
 
                 {dish.dishItem && (
-                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-2)", marginTop: "0.5rem" }}>
-                    ✓ {dish.dishItem.name} · {dish.dishItem.calories} cal
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "var(--color-text-2)", marginTop: "0.5rem" }}>
+                    <CheckIcon size={13} strokeWidth={2.4} style={{ color: "var(--color-success)", flexShrink: 0 }} />
+                    {dish.dishItem.name} · {formatWhole(dish.dishItem.calories)} cal
                   </div>
                 )}
                 <ul style={{ listStyle: "none", margin: "0.5rem 0 0", padding: 0, display: "flex", flexDirection: "column", gap: "0.2rem" }}>
                   {dish.components.map((c, j) => (
-                    <li key={j} style={{ fontSize: "0.75rem", color: c.item ? "var(--color-text-2)" : "var(--color-text-3)" }}>
-                      {c.item ? `✓ ${c.item.name} · ${c.item.calories} cal` : `✗ ${c.text} — not on the Bistro menu, not counted`}
+                    <li key={j} style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: "0.75rem", color: c.item ? "var(--color-text-2)" : "var(--color-text-3)" }}>
+                      {c.item
+                        ? <CheckIcon size={13} strokeWidth={2.4} style={{ color: "var(--color-success)", flexShrink: 0, marginTop: 1 }} />
+                        : <XIcon size={13} strokeWidth={2.4} style={{ color: "var(--color-text-3)", flexShrink: 0, marginTop: 1 }} />}
+                      <span>{c.item ? `${c.item.name} · ${formatWhole(c.item.calories)} cal` : `${c.text} — not on the Bistro menu, not counted`}</span>
                     </li>
                   ))}
                 </ul>
@@ -209,9 +219,9 @@ export default function ScanOrderPage() {
                 {item && (
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.75rem", fontSize: "0.8rem" }}>
                     <span style={{ color: "var(--color-text-3)" }}>Quantity</span>
-                    <button className="btn-icon" aria-label="Fewer" onClick={() => setQuantities((prev) => prev.map((v, j) => (j === i ? Math.max(1, v - 1) : v)))}>−</button>
+                    <button className="btn-icon" aria-label="Fewer" onClick={() => setQuantities((prev) => prev.map((v, j) => (j === i ? Math.max(1, v - 1) : v)))}><MinusIcon size={14} strokeWidth={2.4} /></button>
                     <span style={{ fontWeight: 700, minWidth: 16, textAlign: "center" }}>{qty}</span>
-                    <button className="btn-icon" aria-label="More" onClick={() => setQuantities((prev) => prev.map((v, j) => (j === i ? v + 1 : v)))}>+</button>
+                    <button className="btn-icon" aria-label="More" onClick={() => setQuantities((prev) => prev.map((v, j) => (j === i ? v + 1 : v)))}><PlusIcon size={14} strokeWidth={2.4} /></button>
                   </div>
                 )}
               </div>

@@ -77,7 +77,7 @@ export function useMealReminders() {
     MEAL_SCHEDULES.forEach(({ slot, label, deadlineHour }) => {
       // Only nudge if current time is past the deadline and slot not yet logged
       if (currentHour >= deadlineHour && !loggedSlots.has(slot)) {
-        showToast(`Don't forget to log your ${label.toLowerCase()}! 🥗`, "info");
+        showToast(`Don't forget to log your ${label.toLowerCase()}!`, "info");
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -15,6 +15,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFoodLogStore, useDateStore, useUIStore } from "@/stores";
 import type { MealSlot } from "@/types";
+import { AlertIcon, BarcodeIcon, CameraIcon, CheckIcon, ChevronLeftIcon, PencilIcon } from "@/components/icons";
+import MacroTiles from "@/components/nutrition/MacroTiles";
 
 // ─── Open Food Facts API ──────────────────────────────────────────────────────
 interface OFFNutriments {
@@ -153,19 +155,17 @@ export default function AddFoodPage() {
 
   return (
     <div className="page">
-      {/* Back header */}
+      {/* Back button, and the step's name once past the first (the header names the page) */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem" }}>
         <button className="btn-icon" onClick={() => navigate(-1)} aria-label="Go back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <polyline points="15,18 9,12 15,6" />
-          </svg>
+          <ChevronLeftIcon size={18} />
         </button>
-        <h1 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800 }}>
+        <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: mode === "choose" ? "var(--color-text-2)" : "var(--color-text-1)" }}>
           {mode === "scan" ? "Scan Barcode"
             : mode === "manual" ? "Manual Entry"
             : mode === "confirm" ? "Confirm & Log"
-            : "Add Custom Food"}
-        </h1>
+            : "How do you want to add it?"}
+        </h2>
       </div>
 
       {mode === "choose"  && <ChooseMode onScan={() => setMode("scan")} onManual={() => setMode("manual")} />}
@@ -207,8 +207,8 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
           width: 48, height: 48, borderRadius: "var(--radius-md)", flexShrink: 0,
           background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "1.5rem",
-        }}>📷</div>
+          color: "#fff",
+        }}><BarcodeIcon size={24} /></div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-text-1)" }}>
             Scan Barcode
@@ -233,10 +233,10 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
       }}>
         <div aria-hidden="true" style={{
           width: 48, height: 48, borderRadius: "var(--radius-md)", flexShrink: 0,
-          background: "linear-gradient(135deg, var(--color-carbs), var(--color-fiber))",
+          background: "var(--color-surface-3)", border: "1px solid var(--color-border-2)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "1.5rem",
-        }}>✏️</div>
+          color: "var(--color-text-1)",
+        }}><PencilIcon size={22} /></div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-text-1)" }}>
             Manual Entry
@@ -368,7 +368,7 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
   if (!hasBarcodeDetector) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center", paddingTop: "1rem" }}>
-        <div aria-hidden="true" style={{ fontSize: "3rem" }}>📸</div>
+        <CameraIcon size={40} style={{ color: "var(--color-primary-light)" }} />
         <p style={{ textAlign: "center", color: "var(--color-text-2)", fontSize: "0.85rem" }}>
           Your browser doesn't support live scanning.<br />
           Upload a photo of the barcode instead.
@@ -428,7 +428,7 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: "0.5rem",
           }}>
-            <div aria-hidden="true" style={{ fontSize: "2rem" }}>✅</div>
+            <CheckIcon size={36} strokeWidth={2.4} style={{ color: "#fff" }} />
             <p style={{ color: "#fff", fontWeight: 600, margin: 0 }}>
               {lookingUp ? "Looking up nutrition…" : "Barcode found!"}
             </p>
@@ -442,7 +442,7 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
             alignItems: "center", justifyContent: "center",
             gap: "0.5rem", padding: "1rem", textAlign: "center",
           }}>
-            <div aria-hidden="true" style={{ fontSize: "2rem" }}>⚠️</div>
+            <AlertIcon size={32} style={{ color: "#f87171" }} />
             <p style={{ color: "#f87171", margin: 0, fontSize: "0.85rem" }}>{errMsg}</p>
           </div>
         )}
@@ -569,22 +569,8 @@ function ConfirmMode({ draft, servings, setServings, mealSlot, setMealSlot, onAd
         <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--color-text-1)", marginBottom: "0.25rem" }}>{draft.name}</div>
         <div style={{ fontSize: "0.75rem", color: "var(--color-text-3)" }}>{draft.servingSize}</div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.5rem", marginTop: "0.85rem" }}>
-          {([
-            { label: "Cal",     val: scaled.calories,   color: "#EC4899" },
-            { label: "Protein", val: `${scaled.protein}g`,  color: "#10b981" },
-            { label: "Carbs",   val: `${scaled.totalCarbs}g`, color: "#3b82f6" },
-            { label: "Fat",     val: `${scaled.totalFat}g`,  color: "#f59e0b" },
-          ] as const).map(({ label, val, color }) => (
-            <div key={label} style={{
-              textAlign: "center", padding: "0.5rem 0.25rem",
-              background: `${color}18`, borderRadius: "var(--radius-sm)",
-              border: `1px solid ${color}33`,
-            }}>
-              <div style={{ fontSize: "1rem", fontWeight: 800, color }}>{val}</div>
-              <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)", marginTop: 2 }}>{label}</div>
-            </div>
-          ))}
+        <div style={{ marginTop: "0.85rem" }}>
+          <MacroTiles calories={scaled.calories} protein={scaled.protein} carbs={scaled.totalCarbs} fat={scaled.totalFat} />
         </div>
       </div>
 
@@ -610,7 +596,7 @@ function ConfirmMode({ draft, servings, setServings, mealSlot, setMealSlot, onAd
       </div>
 
       <button className="btn-primary" onClick={onAdd} style={{ width: "100%", justifyContent: "center", padding: "0.9rem" }}>
-        {added ? "✓ Added! Redirecting…" : `Add ${scaled.calories} cal to ${mealSlot}`}
+        {added ? "Added! Redirecting…" : `Add ${Math.round(scaled.calories)} cal to ${mealSlot}`}
       </button>
     </div>
   );

@@ -16,6 +16,7 @@ import MenuSearch from "@/components/menu/MenuSearch";
 import LocationCard from "@/components/menu/LocationCard";
 import NutritionModal from "@/components/menu/NutritionModal";
 import { LocationCardErrorBoundary } from "@/components/menu/LocationCardErrorBoundary";
+import { AlertIcon, UtensilsIcon } from "@/components/icons";
 
 // Leaflet and the restaurant data only load once the Worcester side is opened
 const WorcesterView = lazy(() => import("@/components/restaurants/WorcesterView"));
@@ -91,7 +92,7 @@ export default function MenuPage() {
               background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
               textAlign: "center",
             }}>
-              <div style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⚠️</div>
+              <AlertIcon size={26} style={{ color: "#f87171", display: "block", margin: "0 auto 0.5rem" }} />
               <p style={{ margin: 0, fontSize: "0.85rem", color: "#f87171", fontWeight: 600 }}>
                 Couldn't load menu data
               </p>
@@ -107,7 +108,7 @@ export default function MenuPage() {
           {/* No data for date */}
           {!isLoading && !error && menuData && menuData.locations.length === 0 && (
             <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
-              <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🍽️</div>
+              <UtensilsIcon size={34} style={{ color: "var(--color-text-3)", display: "block", margin: "0 auto 0.6rem" }} />
               <p style={{ margin: 0, fontWeight: 600, color: "var(--color-text-1)" }}>No dining service today</p>
               <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "var(--color-text-3)" }}>
                 Clark dining may be closed for a break or holiday.

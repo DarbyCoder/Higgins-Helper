@@ -1,8 +1,9 @@
 /**
  * @file src/components/dashboard/MacroProgressBar.tsx
  * @description One nutrient's progress: a colour dot and name, "eaten / goal"
- * in whole grams, and a thin bar in the nutrient's colour. Over the goal, the
- * number turns red.
+ * in whole grams, and a thin bar in the nutrient's colour. For a limit (like
+ * sodium), going over turns the number red; going over a protein or fiber
+ * goal is fine, so those stay as they are.
  */
 import { formatWhole } from "@/utils/format";
 
@@ -13,11 +14,13 @@ interface Props {
   unit?: string;
   /** The nutrient's colour, e.g. var(--color-protein). */
   color: string;
+  /** The target is a ceiling, so going over is shown in red. */
+  limit?: boolean;
 }
 
-export default function MacroProgressBar({ label, consumed, target, unit = "g", color }: Props) {
+export default function MacroProgressBar({ label, consumed, target, unit = "g", color, limit = false }: Props) {
   const pct = target > 0 ? Math.min(consumed / target, 1) : 0;
-  const isOver = consumed > target;
+  const isOver = limit && consumed > target;
 
   return (
     <div>

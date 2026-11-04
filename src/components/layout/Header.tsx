@@ -76,6 +76,13 @@ function getHeaderContent(
         title: "Add Custom Food",
       };
 
+    // ── Scan a Bistro order ──
+    case pathname === "/scan-order":
+      return {
+        subtitle: "From a Grubhub screenshot",
+        title: "Scan Bistro Order",
+      };
+
     // ── Profile / Settings ──
     case pathname === "/profile":
       return {
