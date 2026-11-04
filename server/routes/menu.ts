@@ -18,9 +18,42 @@ import rateLimit from "express-rate-limit";
 import type { DailyMenuResponse, DiningLocation } from "../types/index.js";
 import { scrapeMenuHours } from "../scraper/menuHoursScraper.js";
 import { scrapeLocationMenu } from "../scraper/locationMenuScraper.js";
-import { menuCache } from "../cache/menuCache.js";
+import { menuCache, encodeJson, type EncodedBody } from "../cache/menuCache.js";
 
 export const menuRouter = Router();
+
+// ─── Sending ──────────────────────────────────────────────────────────────────
+
+/**
+ * Sends the smallest encoding the client accepts, plain JSON if it accepts none.
+ *
+ * Brotli is checked first on purpose: it is less than half gzip's size on the
+ * menu, and browsers list gzip first in Accept-Encoding, so normal negotiation
+ * would pick gzip. Cloudflare, in front of Render, asks us for "br, gzip" whatever
+ * the visitor sent and converts for visitors who can't read Brotli. It leaves
+ * responses with a Content-Encoding header alone rather than encoding them twice.
+ *
+ * Don't add Cache-Control: no-transform here. It would stop Cloudflare making
+ * that conversion, so a client without Brotli could receive bytes it can't read.
+ *
+ * Setting the ETag ourselves stops res.send() hashing the body on every request.
+ * res.send() still answers If-None-Match with a bodyless 304.
+ */
+function sendEncoded(req: Request, res: Response, body: EncodedBody): void {
+  res.vary("Accept-Encoding");
+  res.type("json");
+  res.setHeader("ETag", body.etag);
+
+  if (req.acceptsEncodings("br")) {
+    res.setHeader("Content-Encoding", "br");
+    res.send(body.brotli);
+  } else if (req.acceptsEncodings("gzip")) {
+    res.setHeader("Content-Encoding", "gzip");
+    res.send(body.gzip);
+  } else {
+    res.send(body.json);
+  }
+}
 
 // ─── Date Helpers ─────────────────────────────────────────────────────────────
 
@@ -56,7 +89,7 @@ function isValidDate(dateStr: string): boolean {
 // Store in-flight Promises per date so concurrent cache-miss requests share
 // the same scrape instead of each spawning their own.
 
-const inflightScrapes = new Map<string, Promise<DailyMenuResponse>>();
+const inflightScrapes = new Map<string, Promise<EncodedBody>>();
 
 // ─── Core Scraping Orchestrator ───────────────────────────────────────────────
 
@@ -65,15 +98,15 @@ const inflightScrapes = new Map<string, Promise<DailyMenuResponse>>();
  * This function is called on a cache miss and is responsible for:
  *   1. Layer 1: fetch /menu-hours/ → get all location stubs
  *   2. Layer 2: fetch each location page in parallel → get full menu data
- *   3. Aggregate results and write to cache
+ *   3. Aggregate results, encode them and write to cache
  *
  * Uses Promise.allSettled so a single failed location doesn't break the
  * entire response — other locations will still be returned.
  *
  * @param date - "YYYY-MM-DD"
- * @returns DailyMenuResponse ready to send to the client
+ * @returns Encoded DailyMenuResponse ready to send to the client
  */
-async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
+async function fetchAndCacheMenuData(date: string): Promise<EncodedBody> {
   console.log(`[menu route] Starting full scrape pipeline for date: ${date}`);
   const startTime = Date.now();
 
@@ -87,8 +120,9 @@ async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
       fetchedAt: new Date().toISOString(),
       locations: [],
     };
-    menuCache.set(date, emptyResponse, 30 * 60 * 1000); // Cache empties for 30 min
-    return emptyResponse;
+    const encodedEmpty = await encodeJson(JSON.stringify(emptyResponse));
+    menuCache.set(date, encodedEmpty, 30 * 60 * 1000); // Cache empties for 30 min
+    return encodedEmpty;
   }
 
   // ── Layer 2: Fetch all location menus in parallel ──
@@ -130,8 +164,9 @@ async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
     locations,
   };
 
-  menuCache.set(date, response);
-  return response;
+  const encoded = await encodeJson(JSON.stringify(response));
+  menuCache.set(date, encoded);
+  return encoded;
 }
 
 /**
@@ -141,7 +176,7 @@ async function fetchAndCacheMenuData(date: string): Promise<DailyMenuResponse> {
  *
  * Exported so server/index.ts can call it for startup pre-warming.
  */
-export function getScrapePromise(date: string): Promise<DailyMenuResponse> {
+export function getScrapePromise(date: string): Promise<EncodedBody> {
   const existing = inflightScrapes.get(date);
   if (existing) return existing;
 
@@ -183,7 +218,7 @@ menuRouter.get(
       const fresh = menuCache.get(date);
       if (fresh) {
         res.setHeader("X-Cache", "HIT");
-        res.json(fresh);
+        sendEncoded(req, res, fresh);
         return;
       }
 
@@ -194,7 +229,7 @@ menuRouter.get(
       const stale = menuCache.getStale(date);
       if (stale) {
         res.setHeader("X-Cache", "STALE");
-        res.json(stale);
+        sendEncoded(req, res, stale);
         // Background refresh — don't block the response
         getScrapePromise(date).catch((err) =>
           console.error("[menu route] Background SWR refresh failed:", err)
@@ -204,8 +239,7 @@ menuRouter.get(
 
       // ── 3. Cold miss — no data at all, must wait for full scrape ──────────
       res.setHeader("X-Cache", "MISS");
-      const data = await getScrapePromise(date);
-      res.json(data);
+      sendEncoded(req, res, await getScrapePromise(date));
     } catch (err) {
       next(err);
     }
@@ -229,8 +263,13 @@ menuRouter.get(
     try {
       menuCache.invalidate(date);
       inflightScrapes.delete(date); // Also clear any in-flight scrape
-      const data = await getScrapePromise(date);
-      res.json({ message: `Cache refreshed for ${date}`, data });
+      const menu = await getScrapePromise(date);
+      // Splice in the serialized menu instead of parsing it back into objects.
+      // `date` is safe to embed: isValidDate() allows only digits and dashes.
+      const body = await encodeJson(
+        `{"message":"Cache refreshed for ${date}","data":${menu.json.toString()}}`
+      );
+      sendEncoded(req, res, body);
     } catch (err) {
       next(err);
     }
