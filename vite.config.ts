@@ -42,6 +42,9 @@ export default defineConfig({
         // than the app, so after an app update phones keep the cached copies
         manualChunks(id) {
           if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return "react";
+          // Analytics loads after first paint (src/firebase/analytics.ts), so it
+          // gets its own chunk rather than joining the one every page needs
+          if (/node_modules\/(firebase\/analytics|@firebase\/(analytics|installations))/.test(id)) return "analytics";
           if (/node_modules\/(firebase|@firebase|re2js|idb|tslib)\//.test(id)) return "firebase";
           return undefined;
         },

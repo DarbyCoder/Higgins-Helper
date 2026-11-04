@@ -77,7 +77,7 @@ const localModeConfig = {
 const firebaseConfig = LOCAL_MODE ? localModeConfig : productionConfig;
 
 // Guard against double-initialization in hot-reload dev environments
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
