@@ -305,11 +305,12 @@ function ScanMode({ onFound, onManual }: { onFound(f: FoodDraft): void; onManual
 
   useEffect(() => {
     let cancelled = false;
+    const scan = startLiveScan(videoRef.current!, handleCode);
+    stopRef.current = scan.stop;
     (async () => {
       try {
-        const stop = await startLiveScan(videoRef.current!, handleCode);
-        if (cancelled) { stop(); return; }
-        stopRef.current = stop;
+        await scan.ready;
+        if (cancelled) return;
         setStatus((s) => (s === "starting" ? "scanning" : s));
       } catch (e) {
         if (cancelled) return;
@@ -322,7 +323,7 @@ function ScanMode({ onFound, onManual }: { onFound(f: FoodDraft): void; onManual
         );
       }
     })();
-    return () => { cancelled = true; stopRef.current?.(); };
+    return () => { cancelled = true; scan.stop(); };
   }, [handleCode]);
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
