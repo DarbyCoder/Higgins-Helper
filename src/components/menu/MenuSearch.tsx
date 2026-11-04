@@ -24,6 +24,7 @@ export default function MenuSearch() {
           <SearchIcon size={16} />
         </span>
         <input
+          id="menu-inline-search"
           className="input"
           style={{ paddingLeft: "2.25rem", paddingRight: searchQuery ? "2.25rem" : undefined }}
           placeholder="Search menu items..."

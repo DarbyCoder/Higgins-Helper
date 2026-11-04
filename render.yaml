@@ -41,6 +41,10 @@ services:
         sync: false
       - key: VITE_FIREBASE_APP_ID
         sync: false
+      # Google Analytics (G-XXXXXXX). Firebase Console → Project settings →
+      # Your apps → measurementId. Optional: without it the SDK looks it up.
+      - key: VITE_FIREBASE_MEASUREMENT_ID
+        sync: false
       # Public half of the key pair that signs meal reminders. See .env.example.
       - key: VITE_VAPID_PUBLIC_KEY
         sync: false

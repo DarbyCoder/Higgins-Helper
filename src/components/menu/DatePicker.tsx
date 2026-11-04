@@ -10,7 +10,8 @@ import { useDateStore, offsetDate, toLocalDateString } from "@/stores";
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_NAMES   = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export default function DatePicker() {
+/** `onPick` runs after a day is chosen, e.g. to close the sheet it's in. */
+export default function DatePicker({ onPick }: { onPick?: (date: string) => void } = {}) {
   const { selectedDate, setSelectedDate } = useDateStore();
   const today = toLocalDateString();
 
@@ -26,7 +27,7 @@ export default function DatePicker() {
         return (
           <button
             key={d}
-            onClick={() => setSelectedDate(d)}
+            onClick={() => { setSelectedDate(d); onPick?.(d); }}
             aria-label={`${DAY_NAMES[date.getDay()]} ${date.getDate()}${isToday ? ", today" : ""}`}
             aria-pressed={isSelected}
             style={{

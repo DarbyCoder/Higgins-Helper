@@ -437,3 +437,13 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
 button.profile-row { transition: background-color 0.15s ease; -webkit-tap-highlight-color: transparent; }
 button.profile-row:active { background-color: var(--color-surface-3); }
 @media (hover: hover) { button.profile-row:hover { background-color: color-mix(in srgb, var(--color-surface-3) 50%, transparent); } }
+
+/* Horizontal chip rows scroll without a bar */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Menu header: the Search pill drops its word on the narrowest phones */
+@media (max-width: 359px) {
+  .menu-search-label { display: none; }
+  .menu-left-word { display: none; }
+}

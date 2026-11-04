@@ -115,9 +115,9 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/menu",
     title: "What's being served",
     body:
-      "Today's Higgins and Bistro menus, with full nutrition for every dish. Search " +
-      "or filter by diet, tap a dish to add it to your log, or switch to Worcester " +
-      "for restaurants near campus.",
+      "The biggest mains at Higgins and The Bistro that fit what you have left. " +
+      "Tap Higgins again to switch meals, filter by diet, or tap Search for any " +
+      "dish. The Clark button up top switches to Worcester restaurants.",
   },
   {
     target: "log-actions",

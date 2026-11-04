@@ -2,11 +2,13 @@
  * @file src/components/layout/Header.tsx
  * @description Top app bar. Left side shows a context-aware greeting/title
  * that changes based on which page the user is on. Right side shows the
- * logging streak as a flame badge, once there is one.
+ * logging streak as a flame badge, once there is one. On the Menu tab the
+ * day is a button and the right side holds Search and the Clark / Worcester
+ * dropdown instead.
  */
 import { useLocation } from "react-router-dom";
-import { useDateStore, useFoodLogStore, useUIStore, useUserStore, toLocalDateString } from "@/stores";
-import type { MenuArea } from "@/stores/useUIStore";
+import { useDateStore, useFoodLogStore, useUserStore, toLocalDateString } from "@/stores";
+import MenuHeaderControls, { MenuDateButton } from "@/components/menu/MenuHeaderControls";
 import { useAuth } from "@/firebase/AuthProvider";
 import { FlameIcon } from "@/components/icons";
 import { computeStreak } from "@/utils/streak";
@@ -20,6 +22,13 @@ function formatDisplayDate(dateStr: string): string {
   return `${DAY_NAMES[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
 }
 
+/** "Nov 4", or with the weekday "Thu, Nov 6". */
+function formatShortDate(dateStr: string, weekday = false): string {
+  const d = new Date(`${dateStr}T12:00:00`);
+  const md = `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+  return weekday ? `${DAY_NAMES[d.getDay()].slice(0, 3)}, ${md}` : md;
+}
+
 function getTimeGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -31,7 +40,6 @@ function getTimeGreeting(): string {
 function getHeaderContent(
   pathname: string,
   selectedDate: string,
-  menuArea: MenuArea,
   userName?: string
 ): { subtitle: string; title: string } {
   // Local date: the UTC one is already tomorrow by evening in the US
@@ -48,18 +56,11 @@ function getHeaderContent(
         title: isToday ? "Today" : formatDisplayDate(selectedDate),
       };
 
-    // ── Menu (Worcester side) ──
-    case pathname === "/menu" && menuArea === "worcester":
-      return {
-        subtitle: "Worcester",
-        title: "Nearby Restaurants",
-      };
-
-    // ── Menu ──
+    // ── Menu: the day is a button (see Header below) ──
     case pathname === "/menu":
       return {
-        subtitle: "Clark Dining",
-        title: isToday ? "Today's Menu" : `Menu · ${formatDisplayDate(selectedDate)}`,
+        subtitle: isToday ? `Today, ${formatShortDate(selectedDate)}` : formatShortDate(selectedDate, true),
+        title: "Menu",
       };
 
     // ── Log ──
@@ -102,14 +103,14 @@ export default function Header() {
   const location = useLocation();
   const selectedDate = useDateStore((s) => s.selectedDate);
   const profileName = useUserStore((s) => s.userProfile?.name);
-  const menuArea = useUIStore((s) => s.menuArea);
   const streak = useFoodLogStore((s) => computeStreak(s.foodLog));
   const { user } = useAuth();
 
   // Prefer the Firebase auth displayName (always current), fall back to stored profile name
   const userName = user?.displayName ?? profileName;
 
-  const { subtitle, title } = getHeaderContent(location.pathname, selectedDate, menuArea, userName);
+  const { subtitle, title } = getHeaderContent(location.pathname, selectedDate, userName);
+  const onMenu = location.pathname === "/menu";
 
 
   return (
@@ -123,15 +124,20 @@ export default function Header() {
       alignItems: "flex-end",
       justifyContent: "space-between",
       gap: "0.75rem",
+      // Above the page, so the Menu's area dropdown can open over it
+      position: "relative",
+      zIndex: 30,
     }}>
-      <div>
-        <div style={{
-          fontSize: "0.8rem",
-          color: "var(--color-text-2)",
-          fontWeight: 500,
-        }}>
-          {subtitle}
-        </div>
+      <div style={{ minWidth: 0 }}>
+        {onMenu ? <MenuDateButton label={subtitle} /> : (
+          <div style={{
+            fontSize: "0.8rem",
+            color: "var(--color-text-2)",
+            fontWeight: 500,
+          }}>
+            {subtitle}
+          </div>
+        )}
         <div style={{
           fontSize: "1.75rem",
           fontWeight: 800,
@@ -144,7 +150,9 @@ export default function Header() {
         </div>
       </div>
 
-      {streak > 0 && (
+      {onMenu && <MenuHeaderControls />}
+
+      {!onMenu && streak > 0 && (
         <div
           role="img"
           aria-label={`${streak}-day logging streak`}

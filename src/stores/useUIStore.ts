@@ -7,7 +7,8 @@
  *   - Active dining location selection
  *   - Active meal period tab
  *   - Menu search/filter query
- *   - Dietary filter toggles
+ *   - Dietary filter toggles, and the Menu's Fits budget / High protein chips
+ *   - Which Menu sheet the header opened (search, day)
  *   - Toast notifications (for surfacing async errors to the user)
  *   - Whether the intro tour is showing
  *
@@ -34,6 +35,9 @@ export interface ToastAction {
 /** Which side of the Menu tab is showing. */
 export type MenuArea = "clark" | "worcester";
 
+/** A Menu tab sheet opened from the header. */
+export type MenuSheet = "search" | "date" | null;
+
 // ─── Store Shape ──────────────────────────────────────────────────────────────
 
 interface UIState {
@@ -55,6 +59,15 @@ interface UIState {
    */
   activeDietaryFilters: string[];
 
+  /** Menu: only dishes within the calories left today. On by default. */
+  fitsBudget: boolean;
+
+  /** Menu: only dishes with at least HIGH_PROTEIN_G of protein. */
+  highProtein: boolean;
+
+  /** The Menu sheet the header opened (search, day), if any. */
+  menuSheet: MenuSheet;
+
   /** Currently displayed toast notifications. */
   toasts: Toast[];
 
@@ -67,6 +80,9 @@ interface UIState {
   setActiveLocation: (slug: string | null) => void;
   setActiveMealPeriod: (meal: string | null) => void;
   setSearchQuery: (query: string) => void;
+  setFitsBudget: (on: boolean) => void;
+  setHighProtein: (on: boolean) => void;
+  setMenuSheet: (sheet: MenuSheet) => void;
 
   /** Adds a dietary filter if not already active. */
   addDietaryFilter: (icon: string) => void;
@@ -114,6 +130,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   activeMealPeriod: null,
   searchQuery: "",
   activeDietaryFilters: [],
+  fitsBudget: true,
+  highProtein: false,
+  menuSheet: null,
   toasts: [],
   isTourOpen: false,
 
@@ -121,6 +140,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   setActiveLocation: (slug) => set({ activeLocationSlug: slug }),
   setActiveMealPeriod: (meal) => set({ activeMealPeriod: meal }),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setFitsBudget: (on) => set({ fitsBudget: on }),
+  setHighProtein: (on) => set({ highProtein: on }),
+  setMenuSheet: (sheet) => set({ menuSheet: sheet }),
 
   addDietaryFilter: (icon) => {
     const current = get().activeDietaryFilters;
@@ -162,6 +184,9 @@ export const useUIStore = create<UIState>((set, get) => ({
       searchQuery: "",
       activeDietaryFilters: [],
       dietFiltersFrom: null,
+      fitsBudget: true,
+      highProtein: false,
+      menuSheet: null,
     }),
 
   showToast: (message, type = "info", action) => {
