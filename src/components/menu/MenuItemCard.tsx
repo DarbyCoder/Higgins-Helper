@@ -1,88 +1,92 @@
 /**
  * @file src/components/menu/MenuItemCard.tsx
- * @description A single menu item row showing name, key macros, dietary badges,
- * and a + button to open the NutritionModal for details and logging.
+ * @description One dish in a station: name, serving size and diet badges on
+ * the left; calories with a thin bar showing the protein/carbs/fat split on
+ * the right; and a + that says the row opens the dish sheet to add it.
  */
 import type { MenuItem } from "@/types";
+import DietBadges from "@/components/nutrition/DietBadges";
+import { PlusIcon } from "@/components/icons";
+import { formatWhole } from "@/utils/format";
 
 interface Props {
   item: MenuItem;
   onSelect: (item: MenuItem) => void;
 }
 
-export default function MenuItemCard({ item, onSelect }: Props) {
-  // Guard: attributes may be missing at runtime if server returned malformed JSON
-  const attrs = Array.isArray(item.attributes) ? item.attributes : [];
-  const visibleAttrs = attrs.slice(0, 3);
+/** Guard: numeric fields may be null/NaN from unusual nutrition JSON blobs. */
+const num = (n: number) => (Number.isFinite(n) ? n : 0);
 
-  // Guard: numeric fields may be null/NaN from unusual nutrition JSON blobs
-  const protein   = Number.isFinite(item.protein)    ? item.protein    : 0;
-  const carbs     = Number.isFinite(item.totalCarbs)  ? item.totalCarbs : 0;
-  const calories  = Number.isFinite(item.calories)    ? item.calories   : 0;
+export default function MenuItemCard({ item, onSelect }: Props) {
+  const calories = num(item.calories);
+  const protein  = num(item.protein);
+  const carbs    = num(item.totalCarbs);
+  const fat      = num(item.totalFat);
+
+  // Calories from each: 4 kcal per gram of protein or carbs, 9 per gram of fat
+  const split = [
+    { label: "Protein", kcal: protein * 4, color: "var(--color-protein)" },
+    { label: "Carbs",   kcal: carbs * 4,   color: "var(--color-carbs)" },
+    { label: "Fat",     kcal: fat * 9,     color: "var(--color-fat)" },
+  ];
+  const splitTotal = split.reduce((a, p) => a + p.kcal, 0);
 
   return (
     <button
       onClick={() => onSelect(item)}
+      aria-label={`${item.name ?? "Unknown item"}, ${item.isEstimate ? "about " : ""}${formatWhole(calories)} calories`}
+      className="pressable"
       style={{
         width: "100%", textAlign: "left",
         display: "flex", alignItems: "center", gap: "0.75rem",
-        padding: "0.65rem 0.75rem",
+        padding: "0.75rem 0.75rem 0.75rem 0.9rem",
         background: "var(--color-surface-2)",
         border: "1px solid var(--color-border)",
         borderRadius: "var(--radius-md)",
         cursor: "pointer",
-        transition: "all 0.16s",
+        color: "var(--color-text-1)",
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--color-surface-3)"; e.currentTarget.style.borderColor = "var(--color-border-2)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--color-surface-2)"; e.currentTarget.style.borderColor = "var(--color-border)"; }}
     >
-      {/* Main content */}
+      {/* Name, serving, diets */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontWeight: 600, fontSize: "0.875rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {item.name ?? "Unknown item"}
         </div>
-        <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-          {item.servingSize}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: 4, minWidth: 0, overflow: "hidden" }}>
+          {item.servingSize && (
+            <span style={{ fontSize: "0.72rem", color: "var(--color-text-3)", whiteSpace: "nowrap", flexShrink: 0 }}>
+              {item.servingSize}
+            </span>
+          )}
+          <DietBadges attributes={item.attributes} compact />
         </div>
-        {/* Dietary badges */}
-        {visibleAttrs.length > 0 && (
-          <div style={{ display: "flex", gap: "0.25rem", marginTop: "0.3rem", flexWrap: "wrap" }}>
-            {visibleAttrs.map((a) => (
-              <span key={a.icon} style={{
-                fontSize: "0.58rem", fontWeight: 700, color: "#34d399",
-                background: "rgba(16,185,129,0.1)", padding: "0.1rem 0.35rem",
-                borderRadius: "999px",
-              }}>
-                {(a.icon ?? "").replace(/_/g, " ")}
-              </span>
-            ))}
-            {attrs.length > 3 && (
-              <span style={{ fontSize: "0.58rem", color: "var(--color-text-3)" }}>+{attrs.length - 3}</span>
-            )}
+      </div>
+
+      {/* Calories and the macro split */}
+      <div style={{ flexShrink: 0, width: 54, textAlign: "right" }}>
+        <div style={{ fontSize: "1rem", fontWeight: 800, letterSpacing: "-0.01em", lineHeight: 1.1 }}>
+          {/* "~" marks estimated nutrition (Worcester restaurant items) */}
+          {item.isEstimate && "~"}{formatWhole(calories)}
+          <span style={{ fontSize: "0.65rem", fontWeight: 500, color: "var(--color-text-3)", marginLeft: 2 }}>cal</span>
+        </div>
+        {splitTotal > 0 && (
+          <div
+            title={split.map((p) => `${p.label} ${Math.round((p.kcal / splitTotal) * 100)}%`).join(" · ")}
+            style={{ display: "flex", gap: 1.5, height: 4, borderRadius: 99, overflow: "hidden", marginTop: 6, marginLeft: "auto", width: 48 }}
+          >
+            {split.map((p) => p.kcal > 0 && <div key={p.label} style={{ flex: p.kcal, background: p.color }} />)}
           </div>
         )}
       </div>
 
-      {/* Calorie + macro mini-column */}
-      <div style={{ flexShrink: 0, textAlign: "right" }}>
-        <div style={{ fontSize: "1rem", fontWeight: 800, color: "var(--color-primary-light)" }}>
-          {/* "~" marks estimated nutrition (Worcester restaurant items) */}
-          {item.isEstimate && "~"}{calories}
-        </div>
-        <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)", lineHeight: 1.3 }}>
-          cal
-        </div>
-        <div style={{ fontSize: "0.65rem", color: "var(--color-text-3)", marginTop: 2 }}>
-          P:{protein.toFixed(0)}g C:{carbs.toFixed(0)}g
-        </div>
-      </div>
-
-      {/* Add chevron */}
-      <div style={{ color: "var(--color-text-3)", flexShrink: 0 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-          <polyline points="9,18 15,12 9,6" />
-        </svg>
-      </div>
+      {/* Add */}
+      <span aria-hidden style={{
+        width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+        display: "grid", placeItems: "center",
+        background: "var(--color-primary-ghost)", color: "var(--color-primary-light)",
+      }}>
+        <PlusIcon size={15} strokeWidth={2.4} />
+      </span>
     </button>
   );
 }

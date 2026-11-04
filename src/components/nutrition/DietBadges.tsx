@@ -33,10 +33,13 @@ const CONTAINS: Record<string, string> = {
   sesame:    "Contains sesame",
 };
 
-/** Vegan already says vegetarian, so showing both is noise. */
+/**
+ * The dish's diets in a fixed order (vegan, vegetarian, GF, halal, kosher), so
+ * rows line up. Vegan already says vegetarian, so showing both is noise.
+ */
 function dietsOf(attrs: DietaryAttribute[]): string[] {
-  const keys = attrs.map((a) => a.icon).filter((k) => k in DIETS);
-  return keys.includes("vegan") ? keys.filter((k) => k !== "vegetarian") : keys;
+  const has = new Set(attrs.map((a) => a.icon));
+  return Object.keys(DIETS).filter((k) => has.has(k) && !(k === "vegetarian" && has.has("vegan")));
 }
 
 export default function DietBadges({ attributes, compact = false }: { attributes: DietaryAttribute[]; compact?: boolean }) {

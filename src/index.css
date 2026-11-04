@@ -398,3 +398,17 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   --macro-fat:     #f59e0b;
   --macro-fiber:   #8b5cf6;
 }
+
+/* ─── Press feedback ──────────────────────────────────────────────────────────
+   Tappable cards and rows shrink a touch while pressed, like native controls. */
+.pressable {
+  transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.15s ease, border-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.pressable:active { transform: scale(0.975); }
+@media (hover: hover) {
+  .pressable:hover { border-color: var(--color-border-2) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active { transform: none; }
+}
