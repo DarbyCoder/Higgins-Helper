@@ -1,118 +1,99 @@
 /**
  * @file src/components/dashboard/CalorieRing.tsx
- * @description D3-powered animated SVG donut chart showing calories consumed
- * vs. daily target. Color transitions green → amber → red as the user approaches
- * and exceeds their goal. Features a smooth sweep-in animation on mount/update.
+ * @description Ring showing calories eaten against the daily goal: a teal
+ * gradient arc with rounded ends and a soft glow, and the number in the middle
+ * counting up as the arc sweeps in. Over the goal, the ring and the number turn
+ * red; how far over is shown beside the ring.
+ *
+ * Plain SVG: the arc is a circle's stroke, drawn by stroke-dashoffset and
+ * animated with a CSS transition.
  */
-import { useEffect, useRef } from "react";
-import * as d3 from "d3";
+import { useEffect, useId, useState } from "react";
+import { useCountUp } from "@/hooks/useCountUp";
+import { formatWhole } from "@/utils/format";
 
 interface Props {
   consumed: number;
   target: number;
-  size?: number;       // outer diameter in px (default 180)
-  thickness?: number;  // ring thickness in px (default 22)
+  /** Outer diameter in px. */
+  size?: number;
+  /** Ring thickness in px. */
+  thickness?: number;
 }
 
-/** Returns the hex color for a given percentage of goal consumed */
-function ringColor(pct: number): string {
-  if (pct >= 1.05) return "#ef4444"; // Over by >5% → red
-  if (pct >= 0.9)  return "#f59e0b"; // 90-105% → amber
-  if (pct >= 0.7)  return "#10b981"; // 70-90% → green
-  return "#14A085";                   // <70% → teal (primary)
-}
+/** How long the arc takes to sweep and the number to count. */
+const SWEEP_MS = 900;
+/** A little over is still on target; past this the ring turns red. */
+const OVER_AT = 1.05;
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export default function CalorieRing({ consumed, target, size = 180, thickness = 22 }: Props) {
-  const svgRef = useRef<SVGSVGElement>(null);
+export default function CalorieRing({ consumed, target, size = 148, thickness = 12 }: Props) {
+  // useId has characters (":" or "«»") that break url(#…) references
+  const id = "ring" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const pct    = target > 0 ? consumed / target : 0;
-  const clampedPct = Math.min(pct, 1);
+  const isOver = pct >= OVER_AT;
 
+  const r = (size - thickness) / 2;
+  const circumference = 2 * Math.PI * r;
+
+  // Start empty, then sweep to the value (and from there to each new value)
+  const [shownPct, setShownPct] = useState(0);
   useEffect(() => {
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    const frame = requestAnimationFrame(() => setShownPct(Math.min(pct, 1)));
+    return () => cancelAnimationFrame(frame);
+  }, [pct]);
+  const offset = circumference * (1 - shownPct);
 
-    const r     = size / 2;
-    const inner = r - thickness;
-    const g     = svg.append("g").attr("transform", `translate(${r},${r})`);
+  const shownNumber = useCountUp(consumed, SWEEP_MS);
 
-    // ── Background track arc ──
-    const trackArc = d3.arc<unknown>()
-      .innerRadius(inner)
-      .outerRadius(r)
-      .startAngle(0)
-      .endAngle(2 * Math.PI)
-      .cornerRadius(6);
-
-    g.append("path")
-      .attr("d", trackArc(null as unknown) ?? "")
-      .attr("fill", "rgba(255,255,255,0.05)");
-
-    // ── Progress arc ──
-    const color = ringColor(pct);
-    const progressArc = d3.arc<unknown>()
-      .innerRadius(inner)
-      .outerRadius(r)
-      .startAngle(0)
-      .cornerRadius(6);
-
-    const pathEl = g.append("path")
-      .attr("fill", color)
-      .style("filter", `drop-shadow(0 0 8px ${color}66)`);
-
-    // Sweep-in animation using d3 transition + attrTween
-    pathEl.datum({ endAngle: 0 })
-      .attr("d", function(d: { endAngle: number }) {
-        return progressArc.endAngle(d.endAngle)(null as unknown) ?? "";
-      })
-      .transition()
-      .duration(900)
-      .ease(d3.easeCubicOut)
-      .attrTween("d", function(this: Element, d: { endAngle: number }) {
-        const interp = d3.interpolate(0, clampedPct * 2 * Math.PI);
-        return (t: number) => {
-          d.endAngle = interp(t);
-          return progressArc.endAngle(d.endAngle)(null as unknown) ?? "";
-        };
-      });
-
-    // ── Overflow arc (shows when over target, layered in red) ──
-    if (pct > 1) {
-      const overArc = d3.arc<unknown>()
-        .innerRadius(inner - 4)
-        .outerRadius(r + 2)
-        .startAngle(0)
-        .endAngle(Math.min((pct - 1) * 2 * Math.PI, 2 * Math.PI))
-        .cornerRadius(4);
-
-      g.append("path")
-        .attr("fill", "rgba(239,68,68,0.7)")
-        .attr("d", overArc(null as unknown) ?? "");
-    }
-
-  }, [consumed, target, size, thickness, pct, clampedPct]);
-
-  const isOver = consumed > target;
+  const [from, to] = isOver ? ["#FF8A7A", "#E5484D"] : ["#5BE0C2", "#119C80"];
+  const arc = {
+    cx: size / 2, cy: size / 2, r, fill: "none",
+    stroke: `url(#${id}-g)`, strokeWidth: thickness, strokeLinecap: "round" as const,
+    strokeDasharray: circumference, strokeDashoffset: offset,
+    // Hidden at zero: a round cap would still draw a dot
+    opacity: shownPct > 0 ? 1 : 0,
+    style: { transition: REDUCED_MOTION ? undefined : `stroke-dashoffset ${SWEEP_MS}ms cubic-bezier(0.22, 1, 0.36, 1)` },
+  };
 
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
-      <svg ref={svgRef} width={size} height={size} />
-      {/* Center text */}
-      <div style={{
-        position: "absolute", inset: 0,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        pointerEvents: "none",
-      }}>
-        <span style={{ fontSize: "0.65rem", color: "var(--color-text-3)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-          {isOver ? "over" : "eaten"}
+      <svg
+        width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+        style={{ transform: "rotate(-90deg)", overflow: "visible", display: "block" }}
+        aria-hidden
+      >
+        <defs>
+          <linearGradient id={`${id}-g`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor={from} />
+            <stop offset="1" stopColor={to} />
+          </linearGradient>
+          <filter id={`${id}-glow`} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-track)" strokeWidth={thickness} />
+        {/* Glow: a blurred copy under the arc */}
+        <circle {...arc} filter={`url(#${id}-glow)`} opacity={arc.opacity * 0.5} />
+        <circle {...arc} />
+      </svg>
+
+      <div
+        aria-label={`${formatWhole(consumed)} calories eaten`}
+        role="img"
+        style={{
+          position: "absolute", inset: 0,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <span style={{
+          fontSize: "2.35rem", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1,
+          color: isOver ? "var(--color-danger)" : "var(--color-text-1)",
+        }}>
+          {formatWhole(shownNumber)}
         </span>
-        <span style={{ fontSize: "1.85rem", fontWeight: 800, color: "var(--color-text-1)", lineHeight: 1.1 }}>
-          {consumed.toLocaleString()}
-        </span>
-        <span style={{ fontSize: "0.7rem", color: "var(--color-text-2)", marginTop: 2 }}>
-          {isOver
-            ? `+${(consumed - target).toLocaleString()} cal`
-            : `${(target - consumed).toLocaleString()} cal remaining`}
+        <span style={{ fontSize: "0.75rem", color: "var(--color-text-2)", fontWeight: 500, marginTop: 5 }}>
+          cal eaten
         </span>
       </div>
     </div>

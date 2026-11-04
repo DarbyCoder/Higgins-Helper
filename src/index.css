@@ -14,13 +14,20 @@
   --color-primary-dim:   #0A5C4E;
   --color-primary-ghost: rgba(20,160,133,0.12);
 
-  /* Macro accent colors */
-  --color-cal:    #EC4899;
-  --color-protein:#10b981;
-  --color-carbs:  #3b82f6;
-  --color-fat:    #f59e0b;
-  --color-fiber:  #8b5cf6;
+  /* One colour per nutrient, the same on every screen. Calories use the brand
+     teal; none of the others is green, so they can't be read as a status. */
+  --color-cal:    #2CC5A5;
+  --color-protein:#FF8A7A;
+  --color-carbs:  #F5B94A;
+  --color-fat:    #A78BFA;
+  --color-fiber:  #5EC8F2;
   --color-sodium: #64748b;
+
+  /* Empty part of a ring or progress bar */
+  --color-track:  rgba(255,255,255,0.07);
+
+  /* Flame badge in the header */
+  --color-streak: #FF9A5C;
 
   /* Text */
   --color-text-1: #f0f0f8;
@@ -59,6 +66,14 @@
   --color-border:     rgba(0,0,0,0.08);
   --color-border-2:   rgba(0,0,0,0.14);
   --color-primary-ghost: rgba(20,160,133,0.08);
+  --color-track:      rgba(10,12,30,0.08);
+  --color-streak:     #E46A26;
+  /* Slightly deeper nutrient colours, readable on white */
+  --color-cal:        #12A386;
+  --color-protein:    #F06A58;
+  --color-carbs:      #E0A12E;
+  --color-fat:        #8B6CF0;
+  --color-fiber:      #2EA9DB;
 }
 
 /* ─── Light mode component tweaks ──────────────────────────────────────────── */
@@ -89,6 +104,8 @@ html {
   font-family: var(--font-family-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Equal-width digits, so numbers don't jiggle as they change */
+  font-variant-numeric: tabular-nums;
   overflow-x: hidden;
 }
 

@@ -129,15 +129,12 @@ export const TOUR_STEPS: TourStep[] = [
       "screenshot to log it. Ate off campus? Add a custom food or scan a barcode.",
   },
   {
-    target: "header-logo",
-    title: "Need a refresher?",
-    body: "Tap the Higgins Helper logo at the top of any page to replay this tour.",
-  },
-  {
     target: "nav-profile",
     route: "/profile",
     title: "Make it yours",
-    body: "Change your goals, set your own macro targets or switch to light mode.",
+    body:
+      "Change your goals, set your own macro targets or switch to light mode. " +
+      "You can replay this tour from here too.",
   },
   {
     target: "notifications",

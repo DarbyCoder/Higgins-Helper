@@ -15,8 +15,8 @@
  *
  * Plays once per user. "Seen" is stored on the Firestore profile
  * (introVersionSeen), so it follows the user across devices. It's recorded on
- * the last step's buttons or Skip, not on open, so closing the app halfway replays it. Tapping
- * the header logo replays it any time.
+ * the last step's buttons or Skip, not on open, so closing the app halfway
+ * replays it. Profile → Help → App tour replays it any time.
  *
  * The start decision waits for Firestore to answer: the profile cached in
  * localStorage can be stale, and would otherwise flash the tour at someone
@@ -557,7 +557,7 @@ function slidePage(phase: "out" | "in", dir: 1 | -1): Animation {
 /**
  * Scrolls so the element and the tooltip under it sit centred as one block,
  * so the tooltip doesn't have to cover the element on short screens.
- * Fixed elements (bottom nav, header logo, Log buttons) don't move when scrolled.
+ * Fixed elements (bottom nav, Log buttons) don't move when scrolled.
  */
 function scrollIntoPlace(el: HTMLElement, tipH: number, motion: boolean) {
   if (isFixed(el)) return;
