@@ -6,21 +6,29 @@
  *
  * Data model:
  *   users/{uid}/profile         — UserProfile + MacroTargets doc
- *   users/{uid}/foodLogs/{date} — DailyFoodLog doc (one per YYYY-MM-DD)
+ *   users/{uid}/foodLogs/{date} — DailyFoodLog doc (one per YYYY-MM-DD), plus an
+ *                                 `updatedAt` server timestamp on every write.
+ *                                 Docs last written before that field existed
+ *                                 don't have it.
  */
 
 import {
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   onSnapshot,
   collection,
   query,
+  where,
   orderBy,
   limit,
-  getDocs,
+  getDocsFromServer,
   serverTimestamp,
+  Timestamp,
+  type DocumentData,
+  type QuerySnapshot,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./firebaseConfig";
@@ -88,15 +96,43 @@ export function onUserProfileSnapshot(
 
 // ─── Food Logs ────────────────────────────────────────────────────────────────
 
-/** Fetches a single day's food log. Returns null if none exists. */
+/** A batch of day docs, plus what's needed to ask only for newer ones next time. */
+export interface FoodLogBatch {
+  logs: Record<string, DailyFoodLog>;
+  /** Newest `updatedAt` in the batch, in ms on the server's clock. Null if no doc had one. */
+  newestUpdatedAtMs: number | null;
+}
+
+/** `updatedAt` is sync bookkeeping, so it stays out of the stores. */
+function toDailyFoodLog(data: DocumentData): DailyFoodLog {
+  const { updatedAt: _updatedAt, ...log } = data;
+  return log as DailyFoodLog;
+}
+
+function toFoodLogBatch(snap: QuerySnapshot): FoodLogBatch {
+  const batch: FoodLogBatch = { logs: {}, newestUpdatedAtMs: null };
+  for (const d of snap.docs) {
+    const data = d.data();
+    batch.logs[d.id] = toDailyFoodLog(data);
+    if (data.updatedAt instanceof Timestamp) {
+      batch.newestUpdatedAtMs = Math.max(batch.newestUpdatedAtMs ?? 0, data.updatedAt.toMillis());
+    }
+  }
+  return batch;
+}
+
+/**
+ * Fetches a single day's food log from the server. Returns null if none exists.
+ * Throws when offline, so a caller can't mistake "couldn't check" for "no log".
+ */
 export async function getDailyFoodLog(uid: string, date: string): Promise<DailyFoodLog | null> {
-  const snap = await getDoc(doc(db, "users", uid, "foodLogs", date));
-  return snap.exists() ? (snap.data() as DailyFoodLog) : null;
+  const snap = await getDocFromServer(doc(db, "users", uid, "foodLogs", date));
+  return snap.exists() ? toDailyFoodLog(snap.data()) : null;
 }
 
 /** Writes a full day's food log to Firestore (overwrites the doc). */
 export async function setDailyFoodLog(uid: string, date: string, log: DailyFoodLog): Promise<void> {
-  await setDoc(doc(db, "users", uid, "foodLogs", date), log);
+  await setDoc(doc(db, "users", uid, "foodLogs", date), { ...log, updatedAt: serverTimestamp() });
 }
 
 /**
@@ -110,27 +146,41 @@ export function onFoodLogSnapshot(
 ): Unsubscribe {
   return onSnapshot(
     doc(db, "users", uid, "foodLogs", date),
-    (snap) => callback(snap.exists() ? (snap.data() as DailyFoodLog) : null),
+    (snap) => callback(snap.exists() ? toDailyFoodLog(snap.data()) : null),
   );
 }
 
 /**
- * Fetches the N most recent food log docs for a user.
- * Used for hydrating the Zustand store with recent history on login.
+ * Fetches the N most recent food log docs for a user: the full sync, costing one
+ * read per doc.
+ *
+ * Asks the server directly. Offline, a plain getDocs() answers with an empty list
+ * from the cache instead of failing, which would look like a synced, empty log.
  */
-export async function getRecentFoodLogs(
-  uid: string,
-  days = 90,
-): Promise<Record<string, DailyFoodLog>> {
+export async function getRecentFoodLogs(uid: string, days = 90): Promise<FoodLogBatch> {
   const q = query(
     collection(db, "users", uid, "foodLogs"),
     orderBy("date", "desc"),
     limit(days),
   );
-  const snap = await getDocs(q);
-  const result: Record<string, DailyFoodLog> = {};
-  snap.forEach((d) => {
-    result[d.id] = d.data() as DailyFoodLog;
-  });
-  return result;
+  return toFoodLogBatch(await getDocsFromServer(q));
+}
+
+/**
+ * Fetches only the day docs written at or after `sinceMs` (server clock), from any
+ * device and for any date. Costs one read per doc returned, and one if there are none.
+ * Null means from the beginning, which returns every doc that has an `updatedAt`.
+ *
+ * Firestore leaves docs without the field out of this query, so it only works on
+ * top of a full sync, which is what picks up docs from before the field existed.
+ */
+export async function getFoodLogsChangedSince(
+  uid: string,
+  sinceMs: number | null,
+): Promise<FoodLogBatch> {
+  const q = query(
+    collection(db, "users", uid, "foodLogs"),
+    where("updatedAt", ">=", Timestamp.fromMillis(sinceMs ?? 0)),
+  );
+  return toFoodLogBatch(await getDocsFromServer(q));
 }

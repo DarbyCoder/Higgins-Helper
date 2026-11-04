@@ -4,6 +4,7 @@
  *   • Loading                          → branded splash screen
  *   • Signed out                       → LoginPage
  *   • Signed in, profile still loading → branded splash screen
+ *   • Signed in, log not on this device yet → branded splash screen
  *   • Signed in, confirmed no profile  → OnboardingPage (forced wizard)
  *   • Signed in, has profile           → children (the main app)
  *
@@ -16,6 +17,7 @@ import type { ReactNode } from "react";
 import { useAuth }        from "@/firebase/AuthProvider";
 import { LOCAL_MODE }     from "@/firebase/localMode";
 import { useUserStore }   from "@/stores/useUserStore";
+import { useFoodLogStore } from "@/stores/useFoodLogStore";
 import LoginPage          from "@/pages/LoginPage";
 import OnboardingPage     from "@/pages/OnboardingPage";
 
@@ -50,6 +52,8 @@ export default function AuthGate({ children }: AuthGateProps) {
   const { user, loading } = useAuth();
   const hasProfile    = useUserStore((s) => s.userProfile !== null);
   const profileStatus = useUserStore((s) => s.profileStatus);
+  const logIsSynced   = useFoodLogStore((s) => s.logSync?.uid === user?.uid);
+  const hasCachedLog  = useFoodLogStore((s) => Object.keys(s.foodLog).length > 0);
 
   // ── 0. Local test mode: no sign-in, no Firestore ──────────────────────────
   if (LOCAL_MODE) {
@@ -81,11 +85,26 @@ export default function AuthGate({ children }: AuthGateProps) {
     return <Splash message="Couldn’t load your profile. Check your connection and reload the page." />;
   }
 
-  // ── 4. Authenticated, and Firestore confirmed there is no profile ─────────
+  // ── 4. This device doesn't hold this user's log yet ───────────────────────
+  // Unlike the instant paint above, this has to wait. A cached profile can get
+  // here with an empty log (account switch), and an entry added to a day that
+  // only looks empty would overwrite that day's real doc when it saves.
+  //
+  // If the sync failed, a cache with no recorded owner still opens: it predates
+  // owner tracking, and it's all someone offline has to look at.
+  if (!logIsSynced && profileStatus !== "error") {
+    return <Splash message="Loading your food log…" />;
+  }
+
+  if (!logIsSynced && !hasCachedLog) {
+    return <Splash message="Couldn’t load your food log. Check your connection and reload the page." />;
+  }
+
+  // ── 5. Authenticated, and Firestore confirmed there is no profile ─────────
   if (!hasProfile) {
     return <OnboardingPage />;
   }
 
-  // ── 5. Fully authenticated with a complete profile ────────────────────────
+  // ── 6. Fully authenticated with a complete profile ────────────────────────
   return <>{children}</>;
 }
