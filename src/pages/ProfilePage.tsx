@@ -3,8 +3,8 @@ import { useUserStore, calculateMacroTargets, useThemeStore, useUIStore } from "
 import { useAuth } from "@/firebase/AuthProvider";
 import { LOCAL_MODE } from "@/firebase/localMode";
 import { useInstallPrompt, isIOS } from "@/hooks/useInstallPrompt";
-import { getServiceWorker, isPushSupported, subscribeThisDevice, turnOffPush } from "@/firebase/pushNotifications";
-import type { UserProfile, ActivityLevel, WeightGoal, MealReminderPrefs } from "@/types";
+import { useMealReminderSwitch } from "@/hooks/useMealReminderSwitch";
+import type { UserProfile, ActivityLevel, WeightGoal } from "@/types";
 
 /** Local test mode: wipe this browser's saved data and start over at onboarding. */
 function resetLocalTestData() {
@@ -12,12 +12,6 @@ function resetLocalTestData() {
   localStorage.clear();
   window.location.reload();
 }
-
-// ─── Default Reminder Preferences ─────────────────────────────────────────────
-
-const DEFAULT_REMINDER_PREFS: MealReminderPrefs = {
-  enabled: false,
-};
 
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
   sedentary: "Sedentary — desk job, classes, little movement",
@@ -71,95 +65,21 @@ export default function ProfilePage() {
   });
   const [saved, setSaved] = useState(false);
 
-  // Fix #20, #21: Reminder prefs come from the persisted user profile, not from
-  // the browser's Notification.permission — these are separate concerns. Read
-  // live, because another device can change them while this page is open.
-  const reminderPrefs: MealReminderPrefs = userProfile?.mealReminders ?? DEFAULT_REMINDER_PREFS;
-  const [permissionState, setPermissionState] = useState<NotificationPermission | "unsupported">(
-    () => {
-      if (typeof window === "undefined" || !isPushSupported()) return "unsupported";
-      return Notification.permission;
-    }
-  );
-  const [reminderBusy, setReminderBusy] = useState(false);
-
-  async function requestPermission(): Promise<NotificationPermission> {
-    const perm = await Notification.requestPermission();
-    setPermissionState(perm);
-    return perm;
-  }
-
-  /**
-   * Fix #19 & #21: Shows a confirmation via the Service Worker (not new
-   * Notification() which fails on mobile/PWA). Not awaited: it's only feedback.
-   */
-  function showRemindersOnNotification() {
-    getServiceWorker()
-      .then((reg) =>
-        // Fix #19: Use reg.showNotification() — works on mobile & PWAs.
-        // new Notification() throws TypeError on Android Chrome and iOS Safari.
-        reg.showNotification("Higgins Helper 🥗", {
-          body: "Meal reminders are on! You'll get a reminder to log food at 8am, noon, and 8pm.",
-          icon: "/icons/icon-192.png",
-          badge: "/icons/badge-96.png",
-          tag: "reminder-test",
-          data: { url: "/log" },
-        })
-      )
-      .catch(() => {
-        // No service worker or showNotification failed. The toggle still shows it's on.
-      });
-  }
-
-  /**
-   * Saves updated reminder prefs to the user profile store (persisted to
-   * Firestore). Fix #20: prefs are no longer ephemeral component state.
-   */
-  function saveReminderPrefs(prefs: MealReminderPrefs) {
-    if (userProfile) {
-      setUserProfile({ ...userProfile, mealReminders: prefs });
-    }
-  }
+  // Reminders are the account-wide setting on the profile; permission is this
+  // browser's. Shared with the intro tour, which can turn them on from here.
+  const reminders = useMealReminderSwitch();
+  const permissionState = reminders.permission;
+  const reminderBusy = reminders.busy;
 
   async function handleToggleReminders() {
-    setReminderBusy(true);
-    try {
-      if (!reminderPrefs.enabled) {
-        // Turning ON
-        const perm = permissionState === "granted" ? "granted" : await requestPermission();
-        if (perm !== "granted") {
-          alert("Notification permission denied. Check your browser settings to enable notifications.");
-          return;
-        }
-        // No user in local test mode, where there's nothing to push from
-        if (user) await subscribeThisDevice(user.uid);
-        saveReminderPrefs({ ...reminderPrefs, enabled: true });
-        showRemindersOnNotification();
-      } else {
-        // Turning OFF — stops every device, without revoking browser permission
-        if (user) await turnOffPush(user.uid);
-        saveReminderPrefs({ ...reminderPrefs, enabled: false });
-      }
-    } catch (err) {
-      console.error("[ProfilePage] Could not change meal reminders:", err);
-      alert("Couldn't change meal reminders. Check your connection and try again.");
-    } finally {
-      setReminderBusy(false);
-    }
+    const result = await (reminders.enabled ? reminders.turnOff() : reminders.turnOn());
+    if (result === "denied") alert("Notification permission denied. Check your browser settings to enable notifications.");
+    else if (result === "failed") alert("Couldn't change meal reminders. Check your connection and try again.");
   }
 
-  /** Reminders are on for the account, but this device hasn't allowed notifications. */
   async function handleAllowOnThisDevice() {
-    setReminderBusy(true);
-    try {
-      if ((await requestPermission()) !== "granted") return;
-      if (user) await subscribeThisDevice(user.uid);
-      showRemindersOnNotification();
-    } catch (err) {
-      console.error("[ProfilePage] Could not subscribe this device:", err);
+    if ((await reminders.allowOnThisDevice()) === "failed") {
       alert("Couldn't turn on reminders here. Check your connection and try again.");
-    } finally {
-      setReminderBusy(false);
     }
   }
 
@@ -183,7 +103,8 @@ export default function ProfilePage() {
   }
 
   function handleSave() {
-    const profile = form as UserProfile;
+    // Keep fields the form doesn't edit, like meal reminders
+    const profile = { ...userProfile, ...form } as UserProfile;
     setUserProfile(profile);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -432,8 +353,8 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* ── Meal Reminders ── */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
+      {/* ── Meal Reminders (the intro tour ends here) ── */}
+      <div className="glass" data-tour="notifications" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
         <div className="section-title">Notifications</div>
 
         {permissionState === "unsupported" && (
@@ -448,7 +369,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {reminderPrefs.enabled && permissionState === "denied" && (
+        {reminders.enabled && permissionState === "denied" && (
           <div style={{
             padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", marginBottom: "0.75rem",
             background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
@@ -465,7 +386,7 @@ export default function ProfilePage() {
               Meal Reminders
             </div>
             <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              {reminderPrefs.enabled
+              {reminders.enabled
                 ? "On: 8am, noon, and 8pm Eastern"
                 : "Get a reminder to log food at 8am, noon, and 8pm Eastern"}
             </div>
@@ -473,12 +394,12 @@ export default function ProfilePage() {
           {/* Fix #21: Proper on/off toggle instead of permanently-disabled "Enabled ✓" */}
           <button
             role="switch"
-            aria-checked={reminderPrefs.enabled}
+            aria-checked={reminders.enabled}
             onClick={permissionState !== "unsupported" ? handleToggleReminders : undefined}
             disabled={permissionState === "unsupported" || reminderBusy}
             style={{
               width: 48, height: 26, borderRadius: 999, border: "none",
-              background: reminderPrefs.enabled
+              background: reminders.enabled
                 ? "linear-gradient(135deg, #10b981, #059669)"
                 : "rgba(100,100,100,0.3)",
               position: "relative", cursor: permissionState === "unsupported" ? "not-allowed" : "pointer",
@@ -490,7 +411,7 @@ export default function ProfilePage() {
           >
             <span style={{
               position: "absolute",
-              top: 3, left: reminderPrefs.enabled ? 25 : 3,
+              top: 3, left: reminders.enabled ? 25 : 3,
               width: 20, height: 20, borderRadius: "50%",
               background: "#fff",
               transition: "left 0.22s cubic-bezier(0.34,1.56,0.64,1)",
@@ -500,7 +421,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Reminders are on for the account, but not yet allowed on this device ── */}
-        {reminderPrefs.enabled && permissionState === "default" && (
+        {reminders.enabled && permissionState === "default" && (
           <button
             className="btn-ghost"
             onClick={handleAllowOnThisDevice}
