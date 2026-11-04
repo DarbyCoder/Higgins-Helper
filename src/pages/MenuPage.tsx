@@ -8,7 +8,8 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { parseTimeToMinutes } from "@/utils/time";
-import { useDateStore, useMenuStore, useUIStore } from "@/stores";
+import { useDateStore, useMenuStore, useUIStore, useUserStore } from "@/stores";
+import { profileDietFilters } from "@/utils/dietary";
 import type { MenuItem, DiningLocation } from "@/types";
 
 import AreaSwitch from "@/components/menu/AreaSwitch";
@@ -26,6 +27,12 @@ export default function MenuPage() {
   const { selectedDate } = useDateStore();
   const { menuData, isLoading, error, fetchMenu } = useMenuStore();
   const menuArea = useUIStore((s) => s.menuArea);
+  const applyProfileDiets = useUIStore((s) => s.applyProfileDiets);
+  const profileDiets = useUserStore((s) => s.userProfile?.dietaryRestrictions);
+
+  // Start filtered to the diets saved on the profile (vegan, gluten-free…).
+  // Only when those change, so chips changed by hand stay as they are.
+  useEffect(() => { applyProfileDiets(profileDietFilters(profileDiets)); }, [profileDiets, applyProfileDiets]);
 
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [selectedLocation, setSelectedLoc] = useState("");

@@ -1,5 +1,6 @@
 export {};
 
+/** The browser's Shape Detection API, where it exists (src/utils/barcodeScanner.ts). */
 declare global {
   interface DetectedBarcode {
     rawValue: string;
@@ -12,5 +13,6 @@ declare global {
 
   var BarcodeDetector: {
     new (opts: { formats: string[] }): BarcodeDetectorInstance;
+    getSupportedFormats?(): Promise<string[]>;
   };
 }
