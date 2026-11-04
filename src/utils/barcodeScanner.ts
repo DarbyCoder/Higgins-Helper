@@ -45,55 +45,90 @@ async function zxingReader() {
   return new BrowserMultiFormatOneDReader(hints, { delayBetweenScanAttempts: 120 });
 }
 
+/** A running scan. `stop` works at any time, even before the camera is open. */
+export interface LiveScan {
+  /** Settles once the camera is showing; rejects if it can't be opened. */
+  ready: Promise<void>;
+  stop: StopScan;
+}
+
 /**
  * Shows the back camera in `video` and calls `onCode` with the first barcode
- * it reads, then stops the camera. Throws if the camera can't be opened
- * (refused, missing, or the page isn't on HTTPS).
+ * it reads, then stops the camera. `ready` rejects if the camera can't be
+ * opened (refused, missing, or the page isn't on HTTPS).
+ *
+ * The camera is opened here, not by ZXing, so stopping one scan only ever
+ * releases its own stream: a scan stopped while another starts on the same
+ * video (React runs effects twice in development) can't blank the other.
  */
-export async function startLiveScan(video: HTMLVideoElement, onCode: (code: string) => void): Promise<StopScan> {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error("This browser can't open the camera here.");
-  }
-  video.setAttribute("playsinline", "true"); // iOS: play inline, not fullscreen
-  video.muted = true;
+export function startLiveScan(video: HTMLVideoElement, onCode: (code: string) => void): LiveScan {
+  let stopped = false;
+  let stream: MediaStream | null = null;
+  let timer = 0;
 
-  const detector = await nativeDetector();
-  if (detector) {
-    const stream = await navigator.mediaDevices.getUserMedia(CAMERA);
-    let stopped = false;
-    let timer = 0;
-    const stop = () => {
-      stopped = true;
-      clearTimeout(timer);
-      stream.getTracks().forEach((t) => t.stop());
-    };
-    video.srcObject = stream;
-    await video.play();
+  const stop = () => {
+    stopped = true;
+    clearTimeout(timer);
+    stream?.getTracks().forEach((t) => t.stop());
+    if (stream && video.srcObject === stream) video.srcObject = null;
+  };
+
+  const ready = (async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("This browser can't open the camera here.");
+    }
+    // Load the reader while the camera permission prompt is up
+    const decoderP = makeDecoder();
+    const s = await navigator.mediaDevices.getUserMedia(CAMERA);
+    if (stopped) { s.getTracks().forEach((t) => t.stop()); return; }
+    stream = s;
+
+    video.setAttribute("playsinline", "true"); // iOS: play inline, not fullscreen
+    video.setAttribute("autoplay", "true");
+    video.muted = true;
+    video.srcObject = s;
+    try { await video.play(); } catch { /* autoplay attribute takes over */ }
+
+    const decode = await decoderP;
     const tick = async () => {
       if (stopped) return;
-      try {
-        const [code] = await detector.detect(video);
+      if (video.readyState >= 2) {
+        const code = await decode(video).catch(() => null);
         if (code && !stopped) {
           stop();
-          onCode(code.rawValue);
+          onCode(code);
           return;
         }
-      } catch { /* the video isn't ready yet */ }
-      timer = window.setTimeout(tick, 120);
+      }
+      if (!stopped) timer = window.setTimeout(tick, 120);
     };
     tick();
-    return stop;
-  }
+  })();
 
+  return { ready, stop };
+}
+
+/** Reads one video frame: the browser's detector if it has one, else ZXing on a canvas copy. */
+async function makeDecoder(): Promise<(video: HTMLVideoElement) => Promise<string | null>> {
+  const detector = await nativeDetector();
+  if (detector) {
+    return async (video) => (await detector.detect(video))[0]?.rawValue ?? null;
+  }
   const reader = await zxingReader();
-  let done = false;
-  const controls = await reader.decodeFromConstraints(CAMERA, video, (result, _err, ctrl) => {
-    if (!result || done) return;
-    done = true;
-    ctrl.stop();
-    onCode(result.getText());
-  });
-  return () => { done = true; controls.stop(); };
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  return async (video) => {
+    const w = video.videoWidth, h = video.videoHeight;
+    if (!w || !h) return null;
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+    try {
+      return reader.decodeFromCanvas(canvas).getText();
+    } catch {
+      return null; // no barcode in this frame
+    }
+  };
 }
 
 /** Reads a barcode from a photo. Returns null if it can't find one. */
