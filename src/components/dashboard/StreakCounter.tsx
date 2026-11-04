@@ -4,6 +4,7 @@
  * A day "counts" if the user logged at least one food entry.
  */
 import type { DailyFoodLog } from "@/types";
+import { toLocalDateString } from "@/stores/useDateStore";
 
 interface Props {
   foodLog: Record<string, DailyFoodLog>;
@@ -17,8 +18,8 @@ function computeStreak(foodLog: Record<string, DailyFoodLog>): number {
   for (let i = 0; i < 365; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    const log = foodLog[key];
+    // Log days are keyed by local date. A UTC key is already tomorrow by evening in the US.
+    const log = foodLog[toLocalDateString(d)];
 
     if (log && log.entries.length > 0) {
       streak++;
