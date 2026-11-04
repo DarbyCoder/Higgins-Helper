@@ -80,6 +80,16 @@ interface UIState {
   /** Clears all dietary filters. */
   clearDietaryFilters: () => void;
 
+  /**
+   * The profile diet the filters were last set from (sorted icons, joined).
+   * The menu re-applies the profile's diets only when they change, so chips
+   * the user changes by hand stay as they are.
+   */
+  dietFiltersFrom: string | null;
+
+  /** Sets the filters from the profile's diets. */
+  applyProfileDiets: (icons: string[]) => void;
+
   /** Resets all UI state to defaults. */
   resetUI: () => void;
 
@@ -136,6 +146,14 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   clearDietaryFilters: () => set({ activeDietaryFilters: [] }),
 
+  dietFiltersFrom: null,
+
+  applyProfileDiets: (icons) => {
+    const key = [...icons].sort().join(",");
+    if (get().dietFiltersFrom === key) return;
+    set({ activeDietaryFilters: [...new Set(icons)], dietFiltersFrom: key });
+  },
+
   resetUI: () =>
     set({
       menuArea: "clark",
@@ -143,6 +161,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       activeMealPeriod: null,
       searchQuery: "",
       activeDietaryFilters: [],
+      dietFiltersFrom: null,
     }),
 
   showToast: (message, type = "info", action) => {

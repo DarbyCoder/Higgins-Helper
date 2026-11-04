@@ -3,19 +3,19 @@
  * @description Log food that isn't on the Higgins menu.
  *
  * Two modes:
- *  • Barcode Scan — uses the BarcodeDetector API (Chrome/Edge/Safari 17+)
- *    with a camera video feed, then looks up the UPC on Open Food Facts.
+ *  • Barcode Scan — reads the barcode from the camera or a photo in any
+ *    browser (src/utils/barcodeScanner.ts), then looks it up on Open Food Facts.
  *  • Manual Entry — a form where you type in any nutritional values you know.
  *
  * Both modes flow into the same confirm step (meal slot + servings → add to log).
  *
- * BarcodeDetector type stubs live in src/types/barcode-detector.d.ts (#18).
  */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFoodLogStore, useDateStore, useUIStore } from "@/stores";
 import type { MealSlot } from "@/types";
 import { AlertIcon, BarcodeIcon, CameraIcon, CheckIcon, ChevronLeftIcon, PencilIcon } from "@/components/icons";
+import { decodeImageFile, startLiveScan, type StopScan } from "@/utils/barcodeScanner";
 import MacroTiles from "@/components/nutrition/MacroTiles";
 
 // ─── Open Food Facts API ──────────────────────────────────────────────────────
@@ -45,43 +45,52 @@ interface OFFResponse {
   product?: OFFProduct;
 }
 
-/** Grab nutriment value, preferring _serving, falling back to _100g. */
-function off(n: OFFNutriments, key: string): number {
-  const serv = (n as Record<string, number | undefined>)[`${key}_serving`];
-  const per100 = (n as Record<string, number | undefined>)[`${key}_100g`];
-  return serv ?? per100 ?? 0;
-}
+/** What a barcode lookup found. */
+type LookupResult =
+  | { kind: "found"; food: FoodDraft }
+  /** Product known, but without calories: fill the rest in by hand. */
+  | { kind: "no-nutrition"; name: string }
+  | { kind: "not-found" }
+  | { kind: "offline" };
 
 /**
- * Looks up a barcode on Open Food Facts.
- * Returns a FoodDraft on success, or throws with a user-readable message on failure (#2).
+ * Looks up a barcode on Open Food Facts. Uses per-serving numbers when the
+ * product has them, otherwise per-100 g, never a mix of the two.
  */
-async function lookupBarcode(barcode: string): Promise<FoodDraft> {
+async function lookupBarcode(barcode: string): Promise<LookupResult> {
   let data: OFFResponse;
   try {
     const res = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,nutriments,serving_size`,
-      { headers: { "User-Agent": "Higgins Helper/1.0 (nicke@clarku.edu)" } }
+      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,nutriments,serving_size`,
     );
+    if (res.status === 404) return { kind: "not-found" };
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     data = await res.json() as OFFResponse;
-  } catch (err) {
-    throw new Error(`Couldn't connect to product database. Please enter nutritional info manually.`);
+  } catch {
+    return { kind: "offline" };
   }
-  if (data.status !== 1 || !data.product) {
-    throw new Error(`Product not found in database. Please enter nutritional info manually.`);
-  }
+  if (data.status !== 1 || !data.product) return { kind: "not-found" };
+
   const p = data.product;
-  const n = p.nutriments;
+  const n = p.nutriments ?? {};
+  const name = p.product_name?.trim() || "";
+  const perServing = n["energy-kcal_serving"] != null;
+  if (!perServing && n["energy-kcal_100g"] == null) return { kind: "no-nutrition", name };
+
+  const get = (key: string) =>
+    Number((n as Record<string, number | undefined>)[`${key}_${perServing ? "serving" : "100g"}`] ?? 0);
   return {
-    name: p.product_name || `Product ${barcode}`,
-    servingSize: p.serving_size ?? "1 serving",
-    calories:   Math.round(off(n, "energy-kcal")),
-    protein:    Math.round(off(n, "proteins") * 10) / 10,
-    totalCarbs: Math.round(off(n, "carbohydrates") * 10) / 10,
-    totalFat:   Math.round(off(n, "fat") * 10) / 10,
-    fiber:      Math.round(off(n, "fiber") * 10) / 10,
-    sodium:     Math.round(off(n, "sodium") * 1000), // OFF gives sodium in g
+    kind: "found",
+    food: {
+      name: name || `Product ${barcode}`,
+      servingSize: perServing ? (p.serving_size || "1 serving") : "100 g",
+      calories:   Math.round(get("energy-kcal")),
+      protein:    Math.round(get("proteins") * 10) / 10,
+      totalCarbs: Math.round(get("carbohydrates") * 10) / 10,
+      totalFat:   Math.round(get("fat") * 10) / 10,
+      fiber:      Math.round(get("fiber") * 10) / 10,
+      sodium:     Math.round(get("sodium") * 1000), // OFF gives sodium in g
+    },
   };
 }
 
@@ -169,7 +178,12 @@ export default function AddFoodPage() {
       </div>
 
       {mode === "choose"  && <ChooseMode onScan={() => setMode("scan")} onManual={() => setMode("manual")} />}
-      {mode === "scan"    && <ScanMode onFound={goToConfirm} onFallback={() => setMode("manual")} />}
+      {mode === "scan"    && (
+        <ScanMode
+          onFound={goToConfirm}
+          onManual={(name = "") => { setDraft({ ...EMPTY_DRAFT, name }); setMode("manual"); }}
+        />
+      )}
       {mode === "manual"  && <ManualMode draft={draft} onChange={setDraft} onConfirm={() => goToConfirm(draft)} />}
       {mode === "confirm" && (
         <ConfirmMode
@@ -189,15 +203,13 @@ export default function AddFoodPage() {
 // ─── Mode: Choose ─────────────────────────────────────────────────────────────
 
 function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) {
-  const hasBarcodeDetector = "BarcodeDetector" in window;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
       {/* Barcode option */}
       <button onClick={onScan} className="pressable" style={{
         display: "flex", alignItems: "center", gap: "1rem",
         padding: "1.1rem 1.1rem",
-        background: hasBarcodeDetector ? "var(--color-surface-2)" : "var(--color-surface-3)",
+        background: "var(--color-surface-2)",
         border: "1px solid var(--color-border)",
         borderRadius: "var(--radius-lg)",
         cursor: "pointer", textAlign: "left",
@@ -214,9 +226,7 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
             Scan Barcode
           </div>
           <div style={{ fontSize: "0.75rem", color: "var(--color-text-3)", marginTop: 2 }}>
-            {hasBarcodeDetector
-              ? "Point camera at a barcode — autofills nutrition from Open Food Facts"
-              : "Upload a barcode photo to identify the product"}
+            Point your camera at the barcode and the nutrition fills in from Open Food Facts
           </div>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth={2} strokeLinecap="round"><polyline points="9,18 15,12 9,6" /></svg>
@@ -248,211 +258,124 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth={2} strokeLinecap="round"><polyline points="9,18 15,12 9,6" /></svg>
       </button>
 
-      {!hasBarcodeDetector && (
-        <p style={{ fontSize: "0.72rem", color: "var(--color-text-3)", textAlign: "center", margin: "0.25rem 0 0" }}>
-          Live camera scanning requires Chrome or Edge. Safari 17+ also supported.
-        </p>
-      )}
+
     </div>
   );
 }
 
 // ─── Mode: Scan ───────────────────────────────────────────────────────────────
 
-function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFallback(): void }) {
-  const videoRef   = useRef<HTMLVideoElement>(null);
-  const streamRef  = useRef<MediaStream | null>(null);
-  const rafRef     = useRef<number>(0);
+type ScanStatus = "starting" | "scanning" | "looking-up" | "no-camera";
 
-  const [status, setStatus]   = useState<"requesting" | "scanning" | "found" | "error">("requesting");
-  const [errMsg, setErrMsg]   = useState("");
-  const [lookingUp, setLooking] = useState(false);
+/**
+ * Live camera scanning, with "use a photo" for when the camera can't open
+ * or the barcode won't read live. A code is looked up on Open Food Facts:
+ * found → confirm; known but no nutrition, or unknown → manual entry.
+ */
+function ScanMode({ onFound, onManual }: { onFound(f: FoodDraft): void; onManual(name?: string): void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const stopRef  = useRef<StopScan | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<ScanStatus>("starting");
+  const [cameraError, setCameraError] = useState("");
 
-  const hasBarcodeDetector = "BarcodeDetector" in window;
+  // Latest callbacks, so the camera isn't restarted when the page re-renders
+  const handlers = useRef({ onFound, onManual });
+  handlers.current = { onFound, onManual };
 
-  const stopStream = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+  const handleCode = useCallback(async (code: string) => {
+    stopRef.current?.();
+    setStatus("looking-up");
+    try { navigator.vibrate?.(40); } catch { /* not supported */ }
+    const toast = useUIStore.getState().showToast;
+    const result = await lookupBarcode(code);
+    if (result.kind === "found") {
+      handlers.current.onFound(result.food);
+    } else if (result.kind === "no-nutrition") {
+      toast(`${result.name || "This product"} has no nutrition info online. Enter it from the label.`, "info");
+      handlers.current.onManual(result.name);
+    } else if (result.kind === "not-found") {
+      toast(`Barcode ${code} isn't in the product database. Enter it from the label.`, "info");
+      handlers.current.onManual();
+    } else {
+      toast("Couldn't reach the product database. Check your connection, or enter it by hand.", "error");
+      handlers.current.onManual();
+    }
   }, []);
 
   useEffect(() => {
-    if (!hasBarcodeDetector) return;
-
     let cancelled = false;
-
-    async function start() {
+    (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-        setStatus("scanning");
-
-        const detector = new BarcodeDetector({
-          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "qr_code"],
-        });
-
-        async function tick() {
-          if (cancelled || !videoRef.current) return;
-          try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes.length > 0 && codes[0]) {
-              const raw = codes[0].rawValue;
-              setStatus("found");
-              setLooking(true);
-              stopStream();
-              
-              try {
-                const food = await lookupBarcode(raw);
-                setLooking(false);
-                onFound(food);
-              } catch (err) {
-                setLooking(false);
-                if (err instanceof Error) {
-                  useUIStore.getState().showToast(err.message, "error");
-                }
-                onFound({ ...EMPTY_DRAFT, name: `Product ${raw}`, servingSize: "1 serving" });
-              }
-              return;
-            }
-          } catch { /* detector not ready yet */ }
-          rafRef.current = requestAnimationFrame(tick);
-        }
-        rafRef.current = requestAnimationFrame(tick);
+        const stop = await startLiveScan(videoRef.current!, handleCode);
+        if (cancelled) { stop(); return; }
+        stopRef.current = stop;
+        setStatus((s) => (s === "starting" ? "scanning" : s));
       } catch (e) {
-        if (!cancelled) {
-          setStatus("error");
-          setErrMsg(e instanceof Error ? e.message : "Camera access denied");
-        }
+        if (cancelled) return;
+        setStatus("no-camera");
+        const name = e instanceof DOMException ? e.name : "";
+        setCameraError(
+          name === "NotAllowedError" ? "Camera access is off for Higgins Helper. Allow it in your settings, or use a photo."
+          : name === "NotFoundError" ? "No camera found. Use a photo of the barcode instead."
+          : "The camera couldn't start. Use a photo of the barcode instead.",
+        );
       }
-    }
+    })();
+    return () => { cancelled = true; stopRef.current?.(); };
+  }, [handleCode]);
 
-    start();
-    return () => { cancelled = true; stopStream(); };
-  }, [hasBarcodeDetector, onFound, stopStream]);
-
-  // ── File-input fallback (for browsers without BarcodeDetector) ──
-  async function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ""; // the same photo can be picked again
     if (!file) return;
-    setLooking(true);
-    setStatus("found");
-    try {
-      const bitmap = await createImageBitmap(file);
-      const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
-      const codes = await detector.detect(bitmap);
-      if (codes[0]) {
-        try {
-          const food = await lookupBarcode(codes[0].rawValue);
-          setLooking(false);
-          onFound(food);
-          return;
-        } catch (err) {
-          if (err instanceof Error) {
-            useUIStore.getState().showToast(err.message, "error");
-          }
-        }
-      }
-    } catch { /* fall through */ }
-    setLooking(false);
-    // Couldn't read — drop to manual
-    onFallback();
-  }
-
-  if (!hasBarcodeDetector) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center", paddingTop: "1rem" }}>
-        <CameraIcon size={40} style={{ color: "var(--color-primary-light)" }} />
-        <p style={{ textAlign: "center", color: "var(--color-text-2)", fontSize: "0.85rem" }}>
-          Your browser doesn't support live scanning.<br />
-          Upload a photo of the barcode instead.
-        </p>
-        <label className="btn-primary" style={{ cursor: "pointer" }}>
-          <input type="file" accept="image/*" onChange={handleFileInput} style={{ display: "none" }} />
-          Upload Barcode Photo
-        </label>
-        <button className="btn-ghost" onClick={onFallback}>Enter Manually Instead</button>
-        {lookingUp && <p style={{ color: "var(--color-text-3)", fontSize: "0.8rem" }}>Looking up product…</p>}
-      </div>
-    );
+    stopRef.current?.();
+    setStatus("looking-up");
+    const code = await decodeImageFile(file);
+    if (code) return handleCode(code);
+    useUIStore.getState().showToast("Couldn't find a barcode in that photo. Try closer, flat and in focus.", "error");
+    setStatus("no-camera");
+    setCameraError("No barcode found in that photo. Try another, or enter it by hand.");
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      {/* Video viewfinder */}
+      {/* Viewfinder */}
       <div style={{
-        position: "relative",
-        borderRadius: "var(--radius-lg)",
-        overflow: "hidden",
-        background: "#000",
-        aspectRatio: "4/3",
+        position: "relative", borderRadius: "var(--radius-lg)", overflow: "hidden",
+        background: "#000", aspectRatio: "4/3",
       }}>
-        <video
-          ref={videoRef}
-          muted playsInline
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
-        {/* Scan overlay */}
+        <video ref={videoRef} muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+
         {status === "scanning" && (
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{
-              width: "65%", aspectRatio: "2/1",
-              border: "2px solid rgba(20,160,133,0.9)",
-              borderRadius: "var(--radius-md)",
+              position: "relative", width: "72%", aspectRatio: "2/1",
+              border: "2px solid rgba(44,197,165,0.9)", borderRadius: "var(--radius-md)",
               boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
             }}>
-              {/* Animated scan line */}
               <div style={{
-                position: "absolute",
-                top: "50%", left: "5%", right: "5%",
-                height: 2,
-                background: "linear-gradient(90deg, transparent, var(--color-primary), transparent)",
+                position: "absolute", top: "50%", left: "5%", right: "5%", height: 2,
+                background: "linear-gradient(90deg, transparent, var(--color-primary-light), transparent)",
                 animation: "scanLine 1.5s ease-in-out infinite",
               }} />
             </div>
           </div>
         )}
-        {(status === "found" || lookingUp) && (
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "rgba(16,185,129,0.9)",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", gap: "0.5rem",
-          }}>
+        {status === "starting" && (
+          <Overlay><p style={{ color: "#fff", fontSize: "0.85rem", margin: 0 }}>Opening the camera…</p></Overlay>
+        )}
+        {status === "looking-up" && (
+          <Overlay tint="rgba(10,92,78,0.92)">
             <CheckIcon size={36} strokeWidth={2.4} style={{ color: "#fff" }} />
-            <p style={{ color: "#fff", fontWeight: 600, margin: 0 }}>
-              {lookingUp ? "Looking up nutrition…" : "Barcode found!"}
-            </p>
-          </div>
+            <p style={{ color: "#fff", fontWeight: 600, margin: 0 }}>Looking up nutrition…</p>
+          </Overlay>
         )}
-        {status === "error" && (
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "rgba(0,0,0,0.8)",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            gap: "0.5rem", padding: "1rem", textAlign: "center",
-          }}>
-            <AlertIcon size={32} style={{ color: "#f87171" }} />
-            <p style={{ color: "#f87171", margin: 0, fontSize: "0.85rem" }}>{errMsg}</p>
-          </div>
-        )}
-        {status === "requesting" && (
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <p style={{ color: "#fff", fontSize: "0.85rem" }}>Requesting camera…</p>
-          </div>
+        {status === "no-camera" && (
+          <Overlay tint="rgba(0,0,0,0.82)">
+            <AlertIcon size={30} style={{ color: "#f87171" }} />
+            <p style={{ color: "#f2f2f8", margin: 0, fontSize: "0.85rem", lineHeight: 1.5, maxWidth: 280 }}>{cameraError}</p>
+          </Overlay>
         )}
       </div>
 
@@ -464,12 +387,36 @@ function ScanMode({ onFound, onFallback }: { onFound(f: FoodDraft): void; onFall
         }
       `}</style>
 
-      <p style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--color-text-3)", margin: 0 }}>
-        Point the camera at any packaged food barcode
-      </p>
-      <button className="btn-ghost" onClick={onFallback} style={{ width: "100%", justifyContent: "center" }}>
-        Enter Manually Instead
+      {status === "scanning" && (
+        <p style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--color-text-3)", margin: 0 }}>
+          Hold the barcode inside the frame, about a hand's length away
+        </p>
+      )}
+
+      <input ref={photoRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display: "none" }} />
+      <button
+        className={status === "no-camera" ? "btn-primary" : "btn-ghost"}
+        onClick={() => photoRef.current?.click()}
+        disabled={status === "looking-up"}
+        style={{ width: "100%", justifyContent: "center", gap: "0.45rem" }}
+      >
+        <CameraIcon size={17} />
+        Use a photo of the barcode
       </button>
+      <button className="btn-ghost" onClick={() => onManual()} style={{ width: "100%", justifyContent: "center" }}>
+        Enter manually instead
+      </button>
+    </div>
+  );
+}
+
+function Overlay({ children, tint = "transparent" }: { children: React.ReactNode; tint?: string }) {
+  return (
+    <div style={{
+      position: "absolute", inset: 0, background: tint, padding: "1rem", textAlign: "center",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.5rem",
+    }}>
+      {children}
     </div>
   );
 }
@@ -596,7 +543,7 @@ function ConfirmMode({ draft, servings, setServings, mealSlot, setMealSlot, onAd
       </div>
 
       <button className="btn-primary" onClick={onAdd} style={{ width: "100%", justifyContent: "center", padding: "0.9rem" }}>
-        {added ? "Added! Redirecting…" : `Add ${Math.round(scaled.calories)} cal to ${mealSlot}`}
+        {added ? "Added! Redirecting…" : `Add ${Math.round(scaled.calories)} cal to ${MEAL_SLOTS.find((m) => m.value === mealSlot)?.label ?? mealSlot}`}
       </button>
     </div>
   );

@@ -441,6 +441,9 @@ function DietSheet({ profile, onClose }: { profile: UserProfile; onClose: () => 
   };
   return (
     <Sheet title="Diet" onClose={onClose}>
+      <p style={{ margin: "0 0 1rem", fontSize: "0.8rem", color: "var(--color-text-2)", lineHeight: 1.5 }}>
+        The menu opens showing only dishes that fit. You can change the filters there any time.
+      </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
         {DIETARY_OPTIONS.map(({ icon, label }) => {
           const on = selected.includes(icon);

@@ -27,6 +27,14 @@ export function toDietaryIcon(restriction: string): string {
   return LABEL_TO_ICON[key] ?? key;
 }
 
+/** Diets the menu can filter by: the chips in MenuSearch. */
+export const FILTERABLE_DIETS = ["vegan", "vegetarian", "made_without_gluten", "halal", "kosher"];
+
+/** A profile's saved diets as menu filter icons, leaving out any the menu can't filter. */
+export function profileDietFilters(restrictions: string[] | undefined): string[] {
+  return (restrictions ?? []).map(toDietaryIcon).filter((icon) => FILTERABLE_DIETS.includes(icon));
+}
+
 /**
  * Returns only the items that carry ALL of the given dietary attribute icons.
  * Accepts either icon keys or onboarding labels.
