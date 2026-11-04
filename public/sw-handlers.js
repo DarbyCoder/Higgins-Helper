@@ -15,9 +15,8 @@
  */
 
 // ─── Push Event Handler ───────────────────────────────────────────────────────
-// Fired when the server sends a Web Push message to this device.
-// The app uses client-side setTimeout reminders, so this is a future-proof
-// hook for when server-side push is added.
+// Fired when scripts/meal-reminders/send.mjs sends a reminder to this device.
+// Each reminder replaces an unread earlier one (same tag) and still alerts (renotify).
 
 self.addEventListener("push", function (event) {
   var defaults = {

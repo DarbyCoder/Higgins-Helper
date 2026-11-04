@@ -205,14 +205,12 @@ export type WeightUnit = "lbs" | "kg";
 export type HeightUnit = "in" | "cm";
 
 /**
- * Fix #20: Reminder time preferences for each meal slot.
- * Times are stored as "HH:MM" (24-hour) strings.
+ * Fix #20: Whether this account gets the 8am, noon and 8pm meal reminders.
+ * Saved profiles from when the times were adjustable also have breakfastTime,
+ * lunchTime and dinnerTime fields, which nothing reads any more.
  */
 export interface MealReminderPrefs {
   enabled: boolean;
-  breakfastTime: string;  // e.g. "08:30"
-  lunchTime: string;      // e.g. "12:30"
-  dinnerTime: string;     // e.g. "18:30"
 }
 
 export interface UserProfile {

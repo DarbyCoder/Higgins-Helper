@@ -1,0 +1,13 @@
+{
+  "name": "higgins-meal-reminders",
+  "private": true,
+  "type": "module",
+  "description": "Sends the 8am, noon and 8pm meal reminders. Run by .github/workflows/meal-reminders.yml, separate from the app so its build never installs these.",
+  "scripts": {
+    "start": "node send.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "web-push": "^3.6.7"
+  }
+}

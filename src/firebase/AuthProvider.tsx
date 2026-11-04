@@ -18,6 +18,7 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "./firebaseConfig";
 import { LOCAL_MODE } from "./localMode";
+import { removeThisDeviceFromPush } from "./pushNotifications";
 import { useAuthStore } from "@/stores/useAuthStore";
 
 // ─── Context Shape ────────────────────────────────────────────────────────────
@@ -90,6 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // A signed-out device shouldn't get reminders, and only a signed-in user can
+    // delete their subscription. Signing back in subscribes the device again.
+    if (user) await removeThisDeviceFromPush(user.uid);
     await firebaseSignOut(auth);
     clearUser();
   }

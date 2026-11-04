@@ -4,3 +4,4 @@
 /dist
 *.log
 npm-debug.log*
+/scripts/meal-reminders/node_modules

@@ -10,6 +10,7 @@
  *                                 `updatedAt` server timestamp on every write.
  *                                 Docs last written before that field existed
  *                                 don't have it.
+ *   users/{uid}/pushSubscriptions/{id} — one per device getting meal reminders
  */
 
 import {
@@ -18,6 +19,7 @@ import {
   getDocFromServer,
   setDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   collection,
   query,
@@ -183,4 +185,28 @@ export async function getFoodLogsChangedSince(
     where("updatedAt", ">=", Timestamp.fromMillis(sinceMs ?? 0)),
   );
   return toFoodLogBatch(await getDocsFromServer(q));
+}
+
+// ─── Push Subscriptions ───────────────────────────────────────────────────────
+
+/** Stores this device's push subscription. See pushNotifications.ts. */
+export async function savePushSubscription(
+  uid: string,
+  id: string,
+  subscription: PushSubscriptionJSON,
+): Promise<void> {
+  await setDoc(doc(db, "users", uid, "pushSubscriptions", id), {
+    subscription,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deletePushSubscription(uid: string, id: string): Promise<void> {
+  await deleteDoc(doc(db, "users", uid, "pushSubscriptions", id));
+}
+
+/** Removes every device's subscription. Costs one read per device, and one if none. */
+export async function deleteAllPushSubscriptions(uid: string): Promise<void> {
+  const snap = await getDocsFromServer(collection(db, "users", uid, "pushSubscriptions"));
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
 }

@@ -1,0 +1,61 @@
+# Sends the 8am, noon and 8pm (Eastern) reminders to log food.
+# See scripts/meal-reminders/send.mjs. GitHub only runs schedules from the default
+# branch (main), so other branches never send anything.
+
+name: Meal reminders
+
+on:
+  schedule:
+    # Cron here is UTC and Eastern shifts with daylight saving, so each reminder has
+    # two runs an hour apart, and send.mjs exits straight away from the one not due.
+    #
+    # At :55 rather than :00 because GitHub starts scheduled runs late, worst at the
+    # top of the hour. If a run is early, send.mjs waits for the exact time.
+    - cron: "55 11,12 * * *" # 8am
+    - cron: "55 15,16 * * *" # noon
+    - cron: "55 23,0 * * *"  # 8pm
+
+  # Actions tab → Meal reminders → Run workflow: test on one account's devices.
+  workflow_dispatch:
+    inputs:
+      uid:
+        description: "Account to send to (Firebase Console → Authentication → User UID)"
+        required: true
+        type: string
+      meal:
+        description: "Which reminder's wording to use"
+        required: true
+        default: lunch
+        type: choice
+        options:
+          - breakfast
+          - lunch
+          - dinner
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/meal-reminders/package-lock.json
+
+      - run: npm ci
+        working-directory: scripts/meal-reminders
+
+      - run: node send.mjs
+        working-directory: scripts/meal-reminders
+        env:
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TEST_UID: ${{ inputs.uid }}
+          TEST_MEAL: ${{ inputs.meal }}
