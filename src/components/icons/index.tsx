@@ -229,3 +229,22 @@ export const ArrowUpRightIcon = (p: IconProps) => (
     <path d="M7 17 17 7M8 7h9v9" />
   </Icon>
 );
+
+export const HelpIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.3-2.4 3.8M12 17v.01" />
+  </Icon>
+);
+
+export const LogOutIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" />
+  </Icon>
+);
+
+export const ActivityIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3 12h4l3-8 4 16 3-8h4" />
+  </Icon>
+);
