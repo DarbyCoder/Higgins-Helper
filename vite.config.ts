@@ -16,7 +16,9 @@ export default defineConfig({
       strategies: "generateSW",
       registerType: "autoUpdate",
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,woff2}"],
+        // iOS fetches its launch screens itself, once, when the app is installed
+        globIgnores: ["splash/**"],
         // Load our custom push/notification-click handlers into the generated SW
         importScripts: ["/sw-handlers.js"],
         runtimeCaching: [
@@ -25,19 +27,6 @@ export default defineConfig({
             handler: "NetworkFirst",
             options: { cacheName: "api-menu-cache" },
           },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: "StaleWhileRevalidate",
-            options: { cacheName: "google-fonts-cache" },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-webfonts",
-              expiration: { maxEntries: 20, maxAgeSeconds: 31_536_000 },
-            },
-          },
         ],
       },
       manifest: false, // We provide our own manifest.json in public/
@@ -45,6 +34,19 @@ export default defineConfig({
   ],
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // React and Firebase in files of their own: they change far less often
+        // than the app, so after an app update phones keep the cached copies
+        manualChunks(id) {
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return "react";
+          if (/node_modules\/(firebase|@firebase|re2js|idb|tslib)\//.test(id)) return "firebase";
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     port: 5173,

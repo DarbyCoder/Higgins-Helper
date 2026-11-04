@@ -1,10 +1,27 @@
-import { useState } from "react";
-import { useUserStore, calculateMacroTargets, useThemeStore, useUIStore } from "@/stores";
+/**
+ * @file src/pages/ProfilePage.tsx
+ * @description Profile: a summary card (who you are, your daily target, your
+ * streak), then iOS-style grouped rows. Tapping a row opens a sheet to change
+ * it. Nothing needs saving: choices save as you tap them, and typed details
+ * save when their sheet closes (once, not on every keystroke, since each save
+ * is a Firestore write).
+ */
+import { useState, type ComponentType, type ReactNode } from "react";
+import { useUserStore, useThemeStore, useUIStore, useFoodLogStore, calculateMacroTargets } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
 import { LOCAL_MODE } from "@/firebase/localMode";
 import { useInstallPrompt, isIOS } from "@/hooks/useInstallPrompt";
 import { useMealReminderSwitch } from "@/hooks/useMealReminderSwitch";
-import type { UserProfile, ActivityLevel, WeightGoal } from "@/types";
+import Sheet from "@/components/ui/Sheet";
+import Switch from "@/components/ui/Switch";
+import {
+  ActivityIcon, BellIcon, CheckIcon, ChevronRightIcon, DumbbellIcon, FlameIcon, HelpIcon,
+  LeafIcon, LogOutIcon, MoonIcon, PencilIcon, PhoneDownloadIcon, ScaleIcon, SunIcon,
+  TargetIcon, TrendDownIcon, UserIcon,
+} from "@/components/icons";
+import { computeStreak } from "@/utils/streak";
+import { formatWhole } from "@/utils/format";
+import type { UserProfile, ActivityLevel, WeightGoal, MacroTargets } from "@/types";
 
 /** Local test mode: wipe this browser's saved data and start over at onboarding. */
 function resetLocalTestData() {
@@ -13,18 +30,18 @@ function resetLocalTestData() {
   window.location.reload();
 }
 
-const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
-  sedentary: "Sedentary — desk job, classes, little movement",
-  light: "Lightly Active — light walks or 1–2 gym sessions/week",
-  moderate: "Moderately Active — 3–4 workouts/week, intramurals",
-  active: "Very Active — athlete or intense training 5–6 days/week",
-  very_active: "Extremely Active — physical job or 2-a-day training",
+const ACTIVITY: Record<ActivityLevel, { name: string; detail: string }> = {
+  sedentary:   { name: "Sedentary",         detail: "Desk job, classes, little movement" },
+  light:       { name: "Lightly active",    detail: "Light walks or 1–2 gym sessions a week" },
+  moderate:    { name: "Moderately active", detail: "3–4 workouts a week, intramurals" },
+  active:      { name: "Very active",       detail: "Athlete or intense training 5–6 days a week" },
+  very_active: { name: "Extremely active",  detail: "Physical job or two-a-day training" },
 };
 
-const GOAL_LABELS: Record<WeightGoal, string> = {
-  lose: "Lose weight (−500 kcal/day)",
-  maintain: "Maintain weight",
-  gain: "Gain muscle (+300 kcal/day)",
+const GOALS: Record<WeightGoal, { name: string; detail: string; Icon: IconType }> = {
+  lose:     { name: "Lose weight",     detail: "500 cal a day under maintenance", Icon: TrendDownIcon },
+  maintain: { name: "Maintain weight", detail: "Eat what you burn",               Icon: ScaleIcon },
+  gain:     { name: "Gain muscle",     detail: "300 cal a day over maintenance",  Icon: DumbbellIcon },
 };
 
 const DIETARY_OPTIONS = [
@@ -35,41 +52,24 @@ const DIETARY_OPTIONS = [
   { icon: "kosher", label: "Kosher" },
 ];
 
+type IconType = ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
+type SheetName = "personal" | "goal" | "diet" | "targets" | null;
+
 export default function ProfilePage() {
-  const { userProfile, setUserProfile, macroTargets, setMacroTargets, resetMacroTargetsToAuto, macroTargetsManuallySet, activeOverrideIndex, setActiveOverrideIndex } = useUserStore();
+  const userProfile = useUserStore((s) => s.userProfile);
+  const macroTargets = useUserStore((s) => s.macroTargets);
+  const manualTargets = useUserStore((s) => s.macroTargetsManuallySet);
+  const streak = useFoodLogStore((s) => computeStreak(s.foodLog));
   const { theme, toggleTheme } = useThemeStore();
   const { user, signOut } = useAuth();
   const openTour = useUIStore((s) => s.openTour);
-  const isDark = theme === "dark";
   const { isInstallable, isInstalled, promptInstall } = useInstallPrompt();
-  const installHint = isInstalled
-    ? "Installed on this device"
-    : isInstallable
-      ? "Works offline and opens like an app"
-      : isIOS
-        ? "In Safari, tap Share, then Add to Home Screen"
-        : "Use your browser's menu to install it, if it offers that";
-
-  // Form state seeded from existing profile
-  const [form, setForm] = useState<Partial<UserProfile>>({
-    name: userProfile?.name ?? "",
-    weight: userProfile?.weight ?? 155,
-    weightUnit: userProfile?.weightUnit ?? "lbs",
-    height: userProfile?.height ?? 68,
-    heightUnit: userProfile?.heightUnit ?? "in",
-    age: userProfile?.age ?? 20,
-    sex: userProfile?.sex ?? "other",
-    activityLevel: userProfile?.activityLevel ?? "light",
-    goal: userProfile?.goal ?? "maintain",
-    dietaryRestrictions: userProfile?.dietaryRestrictions ?? [],
-  });
-  const [saved, setSaved] = useState(false);
+  const [sheet, setSheet] = useState<SheetName>(null);
 
   // Reminders are the account-wide setting on the profile; permission is this
   // browser's. Shared with the intro tour, which can turn them on from here.
   const reminders = useMealReminderSwitch();
-  const permissionState = reminders.permission;
-  const reminderBusy = reminders.busy;
+  const permission = reminders.permission;
 
   async function handleToggleReminders() {
     const result = await (reminders.enabled ? reminders.turnOff() : reminders.turnOn());
@@ -83,486 +83,509 @@ export default function ProfilePage() {
     }
   }
 
-  function field<K extends keyof UserProfile>(key: K) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const val = e.target.type === "number" ? Number(e.target.value) : e.target.value;
-      setForm((f) => ({ ...f, [key]: val }));
-    };
-  }
+  if (!userProfile) return null;
+  const p = userProfile;
+  const goal = GOALS[p.goal] ?? GOALS.maintain;
+  const activity = ACTIVITY[p.activityLevel] ?? ACTIVITY.light;
+  const diets = DIETARY_OPTIONS.filter((d) => p.dietaryRestrictions?.includes(d.icon)).map((d) => d.label);
 
-  function toggleRestriction(icon: string) {
-    setForm((f) => {
-      const current = f.dietaryRestrictions ?? [];
-      return {
-        ...f,
-        dietaryRestrictions: current.includes(icon)
-          ? current.filter((r) => r !== icon)
-          : [...current, icon],
-      };
-    });
-  }
-
-  function handleSave() {
-    // Keep fields the form doesn't edit, like meal reminders
-    const profile = { ...userProfile, ...form } as UserProfile;
-    setUserProfile(profile);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  }
-
-  // Preview auto-calculated targets based on current form values
-  const previewTargets = calculateMacroTargets(form as UserProfile);
+  const installHint = isInstalled
+    ? "Installed"
+    : isInstallable ? "Works offline, opens like an app"
+    : isIOS ? "Safari: Share, then Add to Home Screen"
+    : "Use your browser's menu";
 
   return (
     <div className="page stagger">
-      {/* Personal info */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1rem" }}>
-        <div className="section-title">Personal Info</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <FieldRow label="Name">
-            <input className="input" placeholder="Your name" value={form.name ?? ""} onChange={field("name")} />
-          </FieldRow>
-          <FieldRow label="Age">
-            <input className="input" type="number" min={13} max={100} value={form.age} onChange={field("age")} />
-          </FieldRow>
-          <FieldRow label="Sex">
-            <select className="select" value={form.sex} onChange={field("sex")}>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Prefer not to say</option>
-            </select>
-          </FieldRow>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.5rem" }}>
-            <FieldRow label="Weight">
-              <input className="input" type="number" min={50} max={500} value={form.weight} onChange={field("weight")} />
-            </FieldRow>
-            <FieldRow label="Unit">
-              <select className="select" value={form.weightUnit} onChange={field("weightUnit")}>
-                <option value="lbs">lbs</option>
-                <option value="kg">kg</option>
-              </select>
-            </FieldRow>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.5rem" }}>
-            <FieldRow label="Height">
-              <input className="input" type="number" min={36} max={96} value={form.height} onChange={field("height")} />
-            </FieldRow>
-            <FieldRow label="Unit">
-              <select className="select" value={form.heightUnit} onChange={field("heightUnit")}>
-                <option value="in">in</option>
-                <option value="cm">cm</option>
-              </select>
-            </FieldRow>
-          </div>
-        </div>
-      </div>
+      {/* ── Who you are ── */}
+      <SummaryCard
+        name={p.name}
+        subtitle={`${goal.name} · ${activity.name}`}
+        calories={macroTargets.calories}
+        protein={macroTargets.protein}
+        streak={streak}
+        onEdit={() => setSheet("personal")}
+      />
 
-      {/* Goals */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1rem" }}>
-        <div className="section-title">Goals & Activity</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <FieldRow label="Activity Level">
-            <select className="select" value={form.activityLevel} onChange={field("activityLevel")}>
-              {(Object.keys(ACTIVITY_LABELS) as ActivityLevel[]).map((k) => (
-                <option key={k} value={k}>{ACTIVITY_LABELS[k]}</option>
-              ))}
-            </select>
-          </FieldRow>
-          <FieldRow label="Goal">
-            <select className="select" value={form.goal} onChange={field("goal")}>
-              {(Object.keys(GOAL_LABELS) as WeightGoal[]).map((k) => (
-                <option key={k} value={k}>{GOAL_LABELS[k]}</option>
-              ))}
-            </select>
-          </FieldRow>
-        </div>
-      </div>
+      <Group title="You">
+        <Row Icon={UserIcon} label="Personal details" value={`${p.age} · ${p.weight} ${p.weightUnit} · ${p.height} ${p.heightUnit}`} onClick={() => setSheet("personal")} />
+        <Row Icon={goal.Icon} label="Goal & activity" value={goal.name} onClick={() => setSheet("goal")} />
+        <Row Icon={LeafIcon} label="Diet" value={diets.length ? diets.join(", ") : "None"} onClick={() => setSheet("diet")} />
+        <Row Icon={TargetIcon} label="Daily targets" value={`${formatWhole(macroTargets.calories)} cal · ${manualTargets ? "Custom" : "Auto"}`} onClick={() => setSheet("targets")} />
+      </Group>
 
-      {/* Dietary restrictions */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1rem" }}>
-        <div className="section-title">Dietary Preferences</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-          {DIETARY_OPTIONS.map(({ icon, label }) => {
-            const isActive = (form.dietaryRestrictions ?? []).includes(icon);
-            return (
-              <button key={icon} onClick={() => toggleRestriction(icon)} style={{
-                padding: "0.3rem 0.75rem",
-                borderRadius: "var(--radius-full)",
-                border: isActive ? "1px solid #10b981" : "1px solid var(--color-border)",
-                background: isActive ? "rgba(16,185,129,0.12)" : "transparent",
-                color: isActive ? "#34d399" : "var(--color-text-2)",
-                fontSize: "0.78rem", fontWeight: 600, cursor: "pointer",
-                transition: "all 0.16s",
-              }}>
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Calculated macro targets preview */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-          <div className="section-title" style={{ marginBottom: 0 }}>Macro Targets</div>
-          {macroTargetsManuallySet && (
-            <button className="btn-ghost" onClick={resetMacroTargetsToAuto} style={{ fontSize: "0.65rem" }}>
-              Reset to auto
-            </button>
-          )}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
-          {([
-            { label: "Calories", val: previewTargets.calories, unit: "cal", color: "#EC4899" },
-            { label: "Protein", val: previewTargets.protein, unit: "g", color: "#10b981" },
-            { label: "Carbs", val: previewTargets.totalCarbs, unit: "g", color: "#3b82f6" },
-            { label: "Fat", val: previewTargets.totalFat, unit: "g", color: "#f59e0b" },
-            { label: "Fiber", val: previewTargets.fiber, unit: "g", color: "#8b5cf6" },
-            { label: "Sodium", val: previewTargets.sodium, unit: "mg", color: "#64748b" },
-          ] as const).map(({ label, val, unit, color }) => (
-            <div key={label} style={{ textAlign: "center", padding: "0.5rem 0.25rem", background: `${color}10`, borderRadius: "var(--radius-sm)" }}>
-              <div style={{ fontSize: "1rem", fontWeight: 800, color }}>{val}</div>
-              <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)" }}>{unit}</div>
-              <div style={{ fontSize: "0.6rem", color: "var(--color-text-3)", fontWeight: 600 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-        <p style={{ margin: "0.6rem 0 0", fontSize: "0.68rem", color: "var(--color-text-3)" }}>
-          Calculated using Mifflin-St Jeor TDEE formula. Targets update automatically when you save.
-        </p>
-      </div>
-
-      {/* ── Macro Goal Override ── */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
-        {/* Header row with toggle switch */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-          <div>
-            <div className="section-title" style={{ marginBottom: 0 }}>Goal Overrides</div>
-            <div style={{ fontSize: "0.68rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              Override the auto-calculated macro targets
-            </div>
-          </div>
-          {/* Toggle switch */}
-          <button
-            role="switch"
-            aria-checked={macroTargetsManuallySet}
-            onClick={() => macroTargetsManuallySet ? resetMacroTargetsToAuto() : undefined}
-            style={{
-              width: 44, height: 24, borderRadius: 999, border: "none", padding: 0,
-              background: macroTargetsManuallySet
-                ? "linear-gradient(135deg, var(--color-primary), var(--color-primary-light))"
-                : "var(--color-surface-3)",
-              position: "relative", cursor: "pointer",
-              transition: "background 0.2s",
-              flexShrink: 0,
-              boxShadow: macroTargetsManuallySet ? "0 0 10px rgba(20,160,133,0.35)" : "none",
-            }}
-            aria-label="Toggle goal overrides"
-          >
-            <span style={{
-              position: "absolute", top: 4,
-              left: macroTargetsManuallySet ? 23 : 4,
-              width: 16, height: 16, borderRadius: "50%", background: "#fff",
-              transition: "left 0.2s cubic-bezier(0.34,1.56,0.64,1)",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-            }} />
-          </button>
-        </div>
-
-        {/* Inputs — shown and unlocked only when override is active */}
-        {macroTargetsManuallySet ? (
-          <>
-            <div style={{
-              padding: "0.45rem 0.7rem", borderRadius: "var(--radius-md)", margin: "0.65rem 0",
-              background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
-              fontSize: "0.7rem", color: "#f59e0b",
-            }}>
-              ⚠️ Auto-calculation is paused. Toggle off to restore.
-            </div>
-
-            {/* Override Presets Tabs */}
-            <div style={{ display: "flex", gap: "0.25rem", marginBottom: "0.75rem", background: "var(--color-surface-2)", padding: "0.25rem", borderRadius: "var(--radius-md)" }}>
-              {[1, 2, 3, 4].map((num, i) => {
-                const isActive = activeOverrideIndex === i;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setActiveOverrideIndex(i)}
-                    style={{
-                      flex: 1, padding: "0.4rem 0", fontSize: "0.75rem", fontWeight: 600,
-                      borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer",
-                      background: isActive ? "var(--color-primary)" : "transparent",
-                      color: isActive ? "#fff" : "var(--color-text-3)",
-                      transition: "all 0.2s"
-                    }}
-                  >
-                    Set {num}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
-              {([
-                { label: "Calories (cal)", key: "calories" as const, color: "#EC4899" },
-                { label: "Protein (g)", key: "protein" as const, color: "#10b981" },
-                { label: "Carbs (g)", key: "totalCarbs" as const, color: "#3b82f6" },
-                { label: "Fat (g)", key: "totalFat" as const, color: "#f59e0b" },
-              ]).map(({ label, key, color }) => (
-                <div key={key}>
-                  <label style={{ fontSize: "0.68rem", fontWeight: 600, color: "var(--color-text-3)", display: "block", marginBottom: "0.3rem" }}>
-                    {label}
-                  </label>
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    value={macroTargets[key]}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      if (!isNaN(val) && val > 0) {
-                        setMacroTargets({ ...macroTargets, [key]: val });
-                      }
-                    }}
-                    style={{ borderColor: color + "55" }}
-                  />
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div style={{
-            marginTop: "0.65rem", padding: "0.65rem 0.75rem",
-            borderRadius: "var(--radius-md)",
-            background: "var(--color-surface-3)",
-            fontSize: "0.72rem", color: "var(--color-text-3)",
-            textAlign: "center",
-          }}>
-            Toggle on to manually set your calorie and macro goals
-          </div>
-        )}
-
-        {/* Activation button when switch is off */}
-        {!macroTargetsManuallySet && (
-          <button
-            className="btn-ghost"
-            onClick={() => setMacroTargets({ ...macroTargets })}
-            style={{ width: "100%", justifyContent: "center", marginTop: "0.65rem", fontSize: "0.8rem" }}
-          >
-            Enable overrides
-          </button>
-        )}
-      </div>
-
-      {/* ── Meal Reminders (the intro tour ends here) ── */}
-      <div className="glass" data-tour="notifications" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
-        <div className="section-title">Notifications</div>
-
-        {permissionState === "unsupported" && (
-          <div style={{
-            padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", marginBottom: "0.75rem",
-            background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
-            fontSize: "0.75rem", color: "#ef4444", lineHeight: 1.5,
-          }}>
+      {/* The intro tour's last step spotlights this group */}
+      <Group title="Notifications" tour="notifications">
+        <Row
+          Icon={BellIcon}
+          label="Meal reminders"
+          detail={reminders.enabled ? "On: 8am, noon and 8pm Eastern" : "A nudge at 8am, noon and 8pm Eastern"}
+          trailing={
+            <Switch
+              checked={reminders.enabled}
+              onChange={handleToggleReminders}
+              disabled={permission === "unsupported" || reminders.busy}
+              label="Meal reminders"
+            />
+          }
+        />
+        {permission === "unsupported" && (
+          <Note tone="danger">
             {isIOS
-              ? "❌ On iPhone, notifications only work once the app is installed. In Safari, tap Share, then Add to Home Screen, and open it from there."
-              : "❌ Your browser does not support notifications."}
-          </div>
+              ? "On iPhone, notifications only work once the app is installed. In Safari, tap Share, then Add to Home Screen, and open it from there."
+              : "This browser can't show notifications."}
+          </Note>
         )}
-
-        {reminders.enabled && permissionState === "denied" && (
-          <div style={{
-            padding: "0.65rem 0.85rem", borderRadius: "var(--radius-md)", marginBottom: "0.75rem",
-            background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
-            fontSize: "0.75rem", color: "#f59e0b", lineHeight: 1.5,
-          }}>
-            ⚠️ Notifications are blocked on this device. Allow them in your browser settings to get reminders here.
-          </div>
+        {reminders.enabled && permission === "denied" && (
+          <Note tone="warning">Notifications are blocked on this device. Allow them in your browser's settings to get reminders here.</Note>
         )}
-
-        {/* ── On/Off toggle — Fix #21: can now be toggled both ways ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
-              Meal Reminders
-            </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              {reminders.enabled
-                ? "On: 8am, noon, and 8pm Eastern"
-                : "Get a reminder to log food at 8am, noon, and 8pm Eastern"}
-            </div>
-          </div>
-          {/* Fix #21: Proper on/off toggle instead of permanently-disabled "Enabled ✓" */}
-          <button
-            role="switch"
-            aria-checked={reminders.enabled}
-            onClick={permissionState !== "unsupported" ? handleToggleReminders : undefined}
-            disabled={permissionState === "unsupported" || reminderBusy}
-            style={{
-              width: 48, height: 26, borderRadius: 999, border: "none",
-              background: reminders.enabled
-                ? "linear-gradient(135deg, #10b981, #059669)"
-                : "rgba(100,100,100,0.3)",
-              position: "relative", cursor: permissionState === "unsupported" ? "not-allowed" : "pointer",
-              transition: "background 0.25s", padding: 0,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-              flexShrink: 0,
-            }}
-            aria-label="Toggle meal reminders"
-          >
-            <span style={{
-              position: "absolute",
-              top: 3, left: reminders.enabled ? 25 : 3,
-              width: 20, height: 20, borderRadius: "50%",
-              background: "#fff",
-              transition: "left 0.22s cubic-bezier(0.34,1.56,0.64,1)",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-            }} />
-          </button>
-        </div>
-
-        {/* ── Reminders are on for the account, but not yet allowed on this device ── */}
-        {reminders.enabled && permissionState === "default" && (
-          <button
-            className="btn-ghost"
-            onClick={handleAllowOnThisDevice}
-            disabled={reminderBusy}
-            style={{ width: "100%", justifyContent: "center", fontSize: "0.8rem" }}
-          >
-            Allow notifications on this device
-          </button>
+        {reminders.enabled && permission === "default" && (
+          <Row Icon={CheckIcon} label="Allow notifications on this device" accent onClick={handleAllowOnThisDevice} />
         )}
-      </div>
+      </Group>
 
-      {/* ── Appearance ── */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
-        <div className="section-title">Appearance</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
-              {isDark ? "🌙 Dark Mode" : "☀️ Light Mode"}
-            </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              {isDark ? "Easy on the eyes at night" : "Great for outdoor use"}
-            </div>
-          </div>
-          {/* Toggle switch */}
-          <button
-            role="switch"
-            aria-checked={isDark}
-            onClick={toggleTheme}
-            style={{
-              width: 48, height: 26, borderRadius: 999, border: "none",
-              background: isDark
-                ? "linear-gradient(135deg, #3b82f6, #6366f1)"
-                : "linear-gradient(135deg, #f59e0b, #f97316)",
-              position: "relative", cursor: "pointer",
-              transition: "background 0.25s", padding: 0,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-              flexShrink: 0,
-            }}
-            aria-label="Toggle light/dark mode"
-          >
-            <span style={{
-              position: "absolute",
-              top: 3, left: isDark ? 25 : 3,
-              width: 20, height: 20, borderRadius: "50%",
-              background: "#fff",
-              transition: "left 0.22s cubic-bezier(0.34,1.56,0.64,1)",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "0.7rem",
-            }}>{isDark ? "🌙" : "☀️"}</span>
-          </button>
-        </div>
-      </div>
+      <Group title="App">
+        <Row
+          Icon={theme === "dark" ? MoonIcon : SunIcon}
+          label="Dark mode"
+          trailing={<Switch checked={theme === "dark"} onChange={toggleTheme} label="Toggle light/dark mode" />}
+        />
+        <Row
+          Icon={PhoneDownloadIcon}
+          label="Install Higgins Helper"
+          detail={installHint}
+          value={isInstallable ? "Install" : undefined}
+          onClick={isInstallable ? promptInstall : undefined}
+        />
+        <Row Icon={HelpIcon} label="App tour" value="Replay" onClick={openTour} />
+      </Group>
 
-      {/* ── Install ── */}
-      <div className="glass" style={{ padding: "1rem", marginBottom: "1.25rem" }}>
-        <div className="section-title">App</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--color-text-1)" }}>
-              📲 Install Higgins Helper
-            </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              {installHint}
-            </div>
-          </div>
-          {isInstallable && (
-            <button className="btn-ghost" onClick={promptInstall} style={{ padding: "0.4rem 0.9rem", fontSize: "0.78rem", flexShrink: 0 }}>
-              Install
-            </button>
-          )}
-        </div>
-      </div>
+      <Group title="Account">
+        <Row
+          Icon={UserIcon}
+          label={LOCAL_MODE ? "Local test mode" : user?.displayName ?? p.name ?? "Signed in"}
+          detail={LOCAL_MODE ? "Saved in this browser only" : user?.email ?? undefined}
+        />
+        <Row
+          Icon={LogOutIcon}
+          label={LOCAL_MODE ? "Reset test data" : "Sign out"}
+          danger
+          onClick={LOCAL_MODE ? resetLocalTestData : signOut}
+        />
+      </Group>
 
-      {/* Save */}
-      <button className="btn-primary" onClick={handleSave} style={{ width: "100%", justifyContent: "center", padding: "0.9rem" }}>
-        {saved ? "✓ Saved!" : "Save Profile"}
-      </button>
-
-      {/* Help */}
-      <div className="glass" style={{ padding: "1rem", marginTop: "1rem" }}>
-        <div className="section-title">Help</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-1)" }}>
-              App tour
-            </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              A 30-second walkthrough of Higgins Helper
-            </div>
-          </div>
-          <button className="btn-ghost" onClick={openTour} style={{ padding: "0.4rem 0.9rem", fontSize: "0.78rem", flexShrink: 0 }}>
-            Replay
-          </button>
-        </div>
-      </div>
-
-      {/* Account */}
-      <div className="glass" style={{ padding: "1rem", marginTop: "1rem" }}>
-        <div className="section-title">Account</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "var(--color-text-1)" }}>
-              {LOCAL_MODE ? "Local test mode" : user?.displayName ?? "Signed in"}
-            </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginTop: 2 }}>
-              {LOCAL_MODE ? "Saved in this browser only" : user?.email}
-            </div>
-          </div>
-          <button
-            onClick={LOCAL_MODE ? resetLocalTestData : signOut}
-            style={{
-              padding: "0.4rem 0.9rem",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid rgba(229,57,53,0.35)",
-              background: "rgba(229,57,53,0.08)",
-              color: "#ef5350",
-              fontWeight: 600, fontSize: "0.78rem",
-              cursor: "pointer",
-            }}
-          >
-            {LOCAL_MODE ? "Reset test data" : "Sign Out"}
-          </button>
-        </div>
-      </div>
-
-      <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", marginTop: "1rem" }}>
-        Higgins Helper v1.0.5 · Clark University · {LOCAL_MODE ? "Local test mode" : "Data synced to cloud"}
+      <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", margin: "0.5rem 0 0" }}>
+        Higgins Helper v1.0.5 · Clark University · {LOCAL_MODE ? "Local test mode" : "Synced to your account"}
       </p>
+
+      {sheet === "personal" && <PersonalSheet profile={p} onClose={() => setSheet(null)} />}
+      {sheet === "goal" && <GoalSheet profile={p} onClose={() => setSheet(null)} />}
+      {sheet === "diet" && <DietSheet profile={p} onClose={() => setSheet(null)} />}
+      {sheet === "targets" && <TargetsSheet profile={p} onClose={() => setSheet(null)} />}
     </div>
   );
 }
 
+// ─── Summary card ─────────────────────────────────────────────────────────────
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+function SummaryCard({ name, subtitle, calories, protein, streak, onEdit }: {
+  name: string; subtitle: string; calories: number; protein: number; streak: number; onEdit: () => void;
+}) {
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
-    <div>
-      <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 600, color: "var(--color-text-3)", marginBottom: "0.3rem" }}>
-        {label}
-      </label>
+    <div className="glass" style={{ padding: "1.15rem", marginBottom: "1.5rem", borderRadius: "var(--radius-xl)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.9rem" }}>
+        <div aria-hidden style={{
+          width: 56, height: 56, borderRadius: "50%", flexShrink: 0,
+          display: "grid", placeItems: "center",
+          background: "linear-gradient(135deg, #1CB394, #0A5C4E)",
+          boxShadow: "0 6px 18px rgba(20,160,133,0.35)",
+          color: "#fff", fontSize: "1.4rem", fontWeight: 800,
+        }}>
+          {initial}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: "1.15rem", fontWeight: 800, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {name || "Your profile"}
+          </div>
+          <div style={{ fontSize: "0.8rem", color: "var(--color-text-2)", marginTop: 2 }}>{subtitle}</div>
+        </div>
+        <button
+          onClick={onEdit}
+          aria-label="Edit personal details"
+          style={{
+            width: 36, height: 36, borderRadius: "50%", flexShrink: 0, cursor: "pointer",
+            display: "grid", placeItems: "center",
+            background: "var(--color-surface-3)", border: "1px solid var(--color-border)", color: "var(--color-text-1)",
+          }}
+        >
+          <PencilIcon size={16} />
+        </button>
+      </div>
+
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(3, 1fr)", marginTop: "1.1rem",
+        paddingTop: "1rem", borderTop: "1px solid var(--color-border)",
+      }}>
+        <Stat label="Daily goal" value={formatWhole(calories)} unit="cal" />
+        <Stat label="Protein" value={formatWhole(protein)} unit="g" divider />
+        <Stat label="Streak" value={String(streak)} unit={streak === 1 ? "day" : "days"} divider
+          icon={streak > 0 ? <FlameIcon size={15} style={{ color: "var(--color-streak)" }} /> : undefined} />
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, unit, divider, icon }: { label: string; value: string; unit: string; divider?: boolean; icon?: ReactNode }) {
+  return (
+    <div style={{ textAlign: "center", borderLeft: divider ? "1px solid var(--color-border)" : undefined }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+        {icon}
+        <span style={{ fontSize: "1.2rem", fontWeight: 800, letterSpacing: "-0.02em" }}>{value}</span>
+        <span style={{ fontSize: "0.72rem", fontWeight: 500, color: "var(--color-text-3)" }}>{unit}</span>
+      </div>
+      <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--color-text-3)", marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+// ─── Grouped rows ─────────────────────────────────────────────────────────────
+
+function Group({ title, tour, children }: { title: string; tour?: string; children: ReactNode }) {
+  return (
+    <section style={{ marginBottom: "1.4rem" }}>
+      <h2 style={{
+        margin: "0 0 0.5rem 0.9rem", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em",
+        textTransform: "uppercase", color: "var(--color-text-3)",
+      }}>
+        {title}
+      </h2>
+      <div className="glass profile-group" data-tour={tour} style={{ borderRadius: "var(--radius-lg)", overflow: "hidden", padding: 0 }}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function Row({ Icon, label, value, detail, trailing, onClick, danger, accent }: {
+  Icon: IconType;
+  label: string;
+  /** Short current value, on the right. */
+  value?: string;
+  /** A line under the label. */
+  detail?: string;
+  /** Replaces the value and chevron, e.g. a switch. */
+  trailing?: ReactNode;
+  onClick?: () => void;
+  danger?: boolean;
+  accent?: boolean;
+}) {
+  const color = danger ? "var(--color-danger)" : accent ? "var(--color-primary-light)" : "var(--color-text-1)";
+  const inner = (
+    <>
+      <span aria-hidden style={{
+        width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+        display: "grid", placeItems: "center",
+        background: danger ? "color-mix(in srgb, var(--color-danger) 14%, transparent)" : "var(--color-primary-ghost)",
+        color: danger ? "var(--color-danger)" : "var(--color-primary-light)",
+      }}>
+        <Icon size={17} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color }}>{label}</span>
+        {detail && <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-3)", marginTop: 2 }}>{detail}</span>}
+      </span>
+      {trailing ?? (
+        <>
+          {value && (
+            <span style={{ fontSize: "0.82rem", color: "var(--color-text-2)", maxWidth: "48%", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {value}
+            </span>
+          )}
+          {onClick && !danger && !accent && <ChevronRightIcon size={16} style={{ color: "var(--color-text-3)", flexShrink: 0 }} />}
+        </>
+      )}
+    </>
+  );
+  const style: React.CSSProperties = {
+    width: "100%", display: "flex", alignItems: "center", gap: "0.8rem",
+    padding: "0.75rem 0.9rem", background: "none", border: "none", textAlign: "left",
+    color: "var(--color-text-1)", font: "inherit",
+  };
+  return onClick
+    ? <button className="profile-row" onClick={onClick} style={{ ...style, cursor: "pointer" }}>{inner}</button>
+    : <div className="profile-row" style={style}>{inner}</div>;
+}
+
+function Note({ tone, children }: { tone: "danger" | "warning"; children: ReactNode }) {
+  const color = tone === "danger" ? "#ef4444" : "#e5a13a";
+  return (
+    <div className="profile-row" style={{ padding: "0.65rem 0.9rem 0.75rem 3.6rem", fontSize: "0.75rem", lineHeight: 1.5, color }}>
       {children}
     </div>
+  );
+}
+
+// ─── Sheets ───────────────────────────────────────────────────────────────────
+
+/** Typed details: kept as a draft and saved once, when the sheet closes. */
+function PersonalSheet({ profile, onClose }: { profile: UserProfile; onClose: () => void }) {
+  const [draft, setDraft] = useState({
+    name: profile.name, age: String(profile.age), sex: profile.sex,
+    weight: String(profile.weight), weightUnit: profile.weightUnit,
+    height: String(profile.height), heightUnit: profile.heightUnit,
+  });
+  const set = (k: keyof typeof draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setDraft((d) => ({ ...d, [k]: e.target.value }));
+
+  function saveAndClose() {
+    const current = useUserStore.getState().userProfile;
+    if (current) {
+      // A number left blank or out of range keeps the old value
+      const n = (v: string, old: number, min: number, max: number) => {
+        const x = Number(v);
+        return Number.isFinite(x) && x >= min && x <= max ? x : old;
+      };
+      const next: UserProfile = {
+        ...current,
+        name: draft.name.trim() || current.name,
+        age: n(draft.age, current.age, 13, 100),
+        sex: draft.sex,
+        weight: n(draft.weight, current.weight, 50, 700),
+        weightUnit: draft.weightUnit,
+        height: n(draft.height, current.height, 36, 250),
+        heightUnit: draft.heightUnit,
+      };
+      const changed = (Object.keys(next) as (keyof UserProfile)[]).some((k) => next[k] !== current[k]);
+      if (changed) useUserStore.getState().setUserProfile(next);
+    }
+    onClose();
+  }
+
+  return (
+    <Sheet title="Personal details" onClose={saveAndClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+        <Field label="Name"><input className="input" value={draft.name} onChange={set("name")} autoComplete="given-name" /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+          <Field label="Age"><input className="input" type="number" inputMode="numeric" value={draft.age} onChange={set("age")} /></Field>
+          <Field label="Sex">
+            <select className="select" value={draft.sex} onChange={set("sex")}>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Prefer not to say</option>
+            </select>
+          </Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.6rem" }}>
+          <Field label="Weight"><input className="input" type="number" inputMode="decimal" value={draft.weight} onChange={set("weight")} /></Field>
+          <Field label="Unit">
+            <select className="select" value={draft.weightUnit} onChange={set("weightUnit")}>
+              <option value="lbs">lbs</option>
+              <option value="kg">kg</option>
+            </select>
+          </Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.6rem" }}>
+          <Field label="Height"><input className="input" type="number" inputMode="decimal" value={draft.height} onChange={set("height")} /></Field>
+          <Field label="Unit">
+            <select className="select" value={draft.heightUnit} onChange={set("heightUnit")}>
+              <option value="in">in</option>
+              <option value="cm">cm</option>
+            </select>
+          </Field>
+        </div>
+        <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--color-text-3)", lineHeight: 1.5 }}>
+          Used to work out your daily targets. Saved when you close this.
+        </p>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Choices: each tap saves straight away. */
+function GoalSheet({ profile, onClose }: { profile: UserProfile; onClose: () => void }) {
+  const save = (patch: Partial<UserProfile>) => {
+    const current = useUserStore.getState().userProfile;
+    if (current) useUserStore.getState().setUserProfile({ ...current, ...patch });
+  };
+  return (
+    <Sheet title="Goal & activity" onClose={onClose}>
+      <SheetLabel>Goal</SheetLabel>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.25rem" }}>
+        {(Object.keys(GOALS) as WeightGoal[]).map((k) => (
+          <Choice key={k} Icon={GOALS[k].Icon} name={GOALS[k].name} detail={GOALS[k].detail}
+            selected={profile.goal === k} onClick={() => save({ goal: k })} />
+        ))}
+      </div>
+      <SheetLabel>Activity</SheetLabel>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {(Object.keys(ACTIVITY) as ActivityLevel[]).map((k) => (
+          <Choice key={k} Icon={ActivityIcon} name={ACTIVITY[k].name} detail={ACTIVITY[k].detail}
+            selected={profile.activityLevel === k} onClick={() => save({ activityLevel: k })} />
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
+function DietSheet({ profile, onClose }: { profile: UserProfile; onClose: () => void }) {
+  const selected = profile.dietaryRestrictions ?? [];
+  const toggle = (icon: string) => {
+    const current = useUserStore.getState().userProfile;
+    if (!current) return;
+    const list = current.dietaryRestrictions ?? [];
+    useUserStore.getState().setUserProfile({
+      ...current,
+      dietaryRestrictions: list.includes(icon) ? list.filter((r) => r !== icon) : [...list, icon],
+    });
+  };
+  return (
+    <Sheet title="Diet" onClose={onClose}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+        {DIETARY_OPTIONS.map(({ icon, label }) => {
+          const on = selected.includes(icon);
+          return (
+            <button key={icon} onClick={() => toggle(icon)} aria-pressed={on} style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "0.55rem 0.95rem", borderRadius: "var(--radius-full)", cursor: "pointer",
+              border: `1px solid ${on ? "var(--color-primary)" : "var(--color-border-2)"}`,
+              background: on ? "var(--color-primary-ghost)" : "transparent",
+              color: on ? "var(--color-primary-light)" : "var(--color-text-1)",
+              fontSize: "0.88rem", fontWeight: 600,
+            }}>
+              {on && <CheckIcon size={15} strokeWidth={2.5} />}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </Sheet>
+  );
+}
+
+function TargetsSheet({ profile, onClose }: { profile: UserProfile; onClose: () => void }) {
+  const { macroTargets, setMacroTargets, resetMacroTargetsToAuto, macroTargetsManuallySet: manual, activeOverrideIndex, setActiveOverrideIndex } = useUserStore();
+  const auto = calculateMacroTargets(profile);
+  const shown: MacroTargets = manual ? macroTargets : auto;
+
+  const ROWS = [
+    { label: "Calories", key: "calories" as const,   unit: "cal", color: "var(--color-cal)" },
+    { label: "Protein",  key: "protein" as const,    unit: "g",   color: "var(--color-protein)" },
+    { label: "Carbs",    key: "totalCarbs" as const, unit: "g",   color: "var(--color-carbs)" },
+    { label: "Fat",      key: "totalFat" as const,   unit: "g",   color: "var(--color-fat)" },
+    { label: "Fiber",    key: "fiber" as const,      unit: "g",   color: "var(--color-fiber)" },
+    { label: "Sodium",   key: "sodium" as const,     unit: "mg",  color: "var(--color-sodium)" },
+  ];
+
+  return (
+    <Sheet title="Daily targets" onClose={onClose}>
+      <div className="glass" style={{ padding: "0.25rem 0.9rem", borderRadius: "var(--radius-lg)", marginBottom: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0" }}>
+          <span style={{ flex: 1 }}>
+            <span style={{ display: "block", fontSize: "0.9rem", fontWeight: 600 }}>Set my own targets</span>
+            <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-3)", marginTop: 2 }}>
+              {manual ? "Your numbers, not the calculated ones" : "Worked out from your details and goal"}
+            </span>
+          </span>
+          <Switch
+            checked={manual}
+            onChange={() => (manual ? resetMacroTargetsToAuto() : setMacroTargets({ ...macroTargets }))}
+            label="Set my own targets"
+          />
+        </div>
+      </div>
+
+      {manual && (
+        <div role="tablist" aria-label="Target sets" style={{ display: "flex", gap: "0.25rem", marginBottom: "1rem", background: "var(--color-surface-2)", padding: "0.25rem", borderRadius: "var(--radius-md)" }}>
+          {[0, 1, 2, 3].map((i) => (
+            <button key={i} role="tab" aria-selected={activeOverrideIndex === i} onClick={() => setActiveOverrideIndex(i)} style={{
+              flex: 1, padding: "0.45rem 0", fontSize: "0.78rem", fontWeight: 600,
+              borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer",
+              background: activeOverrideIndex === i ? "var(--color-primary)" : "transparent",
+              color: activeOverrideIndex === i ? "#fff" : "var(--color-text-2)",
+            }}>
+              Set {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
+        {ROWS.map(({ label, key, unit, color }) => (
+          <div key={key} style={{ padding: "0.7rem 0.8rem", borderRadius: "var(--radius-md)", background: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", fontWeight: 600, color: "var(--color-text-3)" }}>
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: color }} />
+              {label}
+            </div>
+            {manual && key !== "fiber" && key !== "sodium" ? (
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 4 }}>
+                <input
+                  type="number" inputMode="numeric" min={0} aria-label={`${label} target`}
+                  value={macroTargets[key]}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (Number.isFinite(val) && val > 0) setMacroTargets({ ...macroTargets, [key]: val });
+                  }}
+                  style={{
+                    width: "100%", minWidth: 0, background: "none", border: "none", outline: "none", padding: 0,
+                    borderBottom: `1.5px solid ${color}`,
+                    color: "var(--color-text-1)", fontSize: "1.15rem", fontWeight: 800, fontFamily: "inherit",
+                  }}
+                />
+                <span style={{ fontSize: "0.72rem", color: "var(--color-text-3)" }}>{unit}</span>
+              </div>
+            ) : (
+              <div style={{ marginTop: 4 }}>
+                <span style={{ fontSize: "1.15rem", fontWeight: 800 }}>{formatWhole(shown[key])}</span>
+                <span style={{ fontSize: "0.72rem", color: "var(--color-text-3)", marginLeft: 3 }}>{unit}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <p style={{ margin: "1rem 0 0", fontSize: "0.72rem", color: "var(--color-text-3)", lineHeight: 1.5 }}>
+        {manual
+          ? "Changes save as you type. Fiber and sodium stay at the recommended amounts."
+          : "Calculated with the Mifflin-St Jeor formula, and updated whenever your details or goal change."}
+      </p>
+    </Sheet>
+  );
+}
+
+// ─── Small pieces ─────────────────────────────────────────────────────────────
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label style={{ display: "block" }}>
+      <span style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-3)", marginBottom: "0.35rem" }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function SheetLabel({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-text-3)", margin: "0 0 0.5rem 0.2rem" }}>
+      {children}
+    </div>
+  );
+}
+
+function Choice({ Icon, name, detail, selected, onClick }: { Icon: IconType; name: string; detail: string; selected: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-pressed={selected} className="pressable" style={{
+      display: "flex", alignItems: "center", gap: "0.8rem", width: "100%", textAlign: "left",
+      padding: "0.75rem 0.9rem", borderRadius: "var(--radius-md)", cursor: "pointer",
+      background: selected ? "var(--color-primary-ghost)" : "var(--color-surface-2)",
+      border: `1px solid ${selected ? "var(--color-primary)" : "var(--color-border)"}`,
+      color: "var(--color-text-1)",
+    }}>
+      <Icon size={20} style={{ color: selected ? "var(--color-primary-light)" : "var(--color-text-2)", flexShrink: 0 }} />
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: "0.9rem", fontWeight: 600 }}>{name}</span>
+        <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-3)", marginTop: 1 }}>{detail}</span>
+      </span>
+      {selected && <CheckIcon size={18} strokeWidth={2.5} style={{ color: "var(--color-primary-light)", flexShrink: 0 }} />}
+    </button>
   );
 }

@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Inter, bundled with the app (latin, variable weight) instead of fetched from
+   Google: no extra request before first paint, and it works offline. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* ─── Design Tokens (Tailwind v4 @theme) ─────────────────────────────────── */
 @theme {
   /* Backgrounds */
@@ -14,13 +25,20 @@
   --color-primary-dim:   #0A5C4E;
   --color-primary-ghost: rgba(20,160,133,0.12);
 
-  /* Macro accent colors */
-  --color-cal:    #EC4899;
-  --color-protein:#10b981;
-  --color-carbs:  #3b82f6;
-  --color-fat:    #f59e0b;
-  --color-fiber:  #8b5cf6;
+  /* One colour per nutrient, the same on every screen. Calories use the brand
+     teal; none of the others is green, so they can't be read as a status. */
+  --color-cal:    #2CC5A5;
+  --color-protein:#FF8A7A;
+  --color-carbs:  #F5B94A;
+  --color-fat:    #A78BFA;
+  --color-fiber:  #5EC8F2;
   --color-sodium: #64748b;
+
+  /* Empty part of a ring or progress bar */
+  --color-track:  rgba(255,255,255,0.07);
+
+  /* Flame badge in the header */
+  --color-streak: #FF9A5C;
 
   /* Text */
   --color-text-1: #f0f0f8;
@@ -59,6 +77,14 @@
   --color-border:     rgba(0,0,0,0.08);
   --color-border-2:   rgba(0,0,0,0.14);
   --color-primary-ghost: rgba(20,160,133,0.08);
+  --color-track:      rgba(10,12,30,0.08);
+  --color-streak:     #E46A26;
+  /* Slightly deeper nutrient colours, readable on white */
+  --color-cal:        #12A386;
+  --color-protein:    #F06A58;
+  --color-carbs:      #E0A12E;
+  --color-fat:        #8B6CF0;
+  --color-fiber:      #2EA9DB;
 }
 
 /* ─── Light mode component tweaks ──────────────────────────────────────────── */
@@ -89,6 +115,8 @@ html {
   font-family: var(--font-family-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Equal-width digits, so numbers don't jiggle as they change */
+  font-variant-numeric: tabular-nums;
   overflow-x: hidden;
 }
 
@@ -138,7 +166,11 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   box-shadow: 0 4px 20px rgba(20,160,133,0.35);
 }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(20,160,133,0.5); }
-.btn-primary:active { transform: translateY(0); }
+.btn-primary:active { transform: scale(0.97); box-shadow: 0 2px 12px rgba(20,160,133,0.35); }
+.btn-ghost:active, .btn-icon:active { transform: scale(0.95); }
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:active, .btn-ghost:active, .btn-icon:active { transform: none; }
+}
 
 /* Ghost button */
 .btn-ghost {
@@ -370,3 +402,38 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   --macro-fat:     #f59e0b;
   --macro-fiber:   #8b5cf6;
 }
+
+/* ─── Press feedback ──────────────────────────────────────────────────────────
+   Tappable cards and rows shrink a touch while pressed, like native controls. */
+.pressable {
+  transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.15s ease, border-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.pressable:active { transform: scale(0.975); }
+@media (hover: hover) {
+  .pressable:hover { border-color: var(--color-border-2) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active { transform: none; }
+}
+
+/* Bottom sheet entrance (Sheet.tsx) */
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ─── Profile grouped rows ─────────────────────────────────────────────────── */
+.profile-group > .profile-row { position: relative; }
+/* Hairline between rows, inset past the icon like iOS */
+.profile-group > .profile-row + .profile-row::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 3.6rem; right: 0;
+  height: 1px;
+  background: var(--color-border);
+  pointer-events: none;
+}
+button.profile-row { transition: background-color 0.15s ease; -webkit-tap-highlight-color: transparent; }
+button.profile-row:active { background-color: var(--color-surface-3); }
+@media (hover: hover) { button.profile-row:hover { background-color: color-mix(in srgb, var(--color-surface-3) 50%, transparent); } }

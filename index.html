@@ -3,8 +3,11 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0A5C4E" />
+  <!-- viewport-fit=cover: draw under the iPhone status bar and home indicator;
+       the header and bottom nav pad themselves with env(safe-area-inset-*) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- Status bar colour on Android: the app's background, switched with the theme below -->
+  <meta name="theme-color" content="#09090f" />
   <meta name="description"
     content="Higgins Helper — Clark University daily calorie tracker for Higgins and The Bistro" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -15,48 +18,104 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
   <link rel="manifest" href="/manifest.json" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet" />
   <title>Higgins Helper — Clark Dining Tracker</title>
 
+  <!-- Apply the saved theme before anything paints, so a light-mode user never
+       sees a dark flash. Keep the colours in step with useThemeStore.ts. -->
+  <script>
+    (function () {
+      var theme = "dark";
+      try { theme = JSON.parse(localStorage.getItem("higgins-theme")).state.theme || "dark"; } catch (e) {}
+      document.documentElement.setAttribute("data-theme", theme);
+      if (theme === "light") {
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", "#f2f2f9");
+        // iOS reads this at launch: dark clock and battery on the light background
+        document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute("content", "default");
+      }
+    })();
+  </script>
+
+  <!-- iPhone launch screens, from scripts/splash/generate.cjs -->
+  <!-- iPhone 16/17 Pro Max -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1320x2868.png"
+    media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone Air -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1260x2736.png"
+    media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone 16/17 Pro, 17 -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1206x2622.png"
+    media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone 14 Pro Max, 15 Plus/Pro Max, 16 Plus -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1290x2796.png"
+    media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone 14 Pro, 15, 15 Pro, 16, 16e -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1179x2556.png"
+    media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone 12/13 Pro Max, 14 Plus -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1284x2778.png"
+    media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone 12, 12 Pro, 13, 13 Pro, 14 -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1170x2532.png"
+    media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone X, XS, 11 Pro, 12/13 mini -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1125x2436.png"
+    media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone XS Max, 11 Pro Max -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png"
+    media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone XR, 11 -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png"
+    media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+  <!-- iPhone 6/7/8 Plus -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-1242x2208.png"
+    media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <!-- iPhone 6/7/8, SE 2nd/3rd gen -->
+  <link rel="apple-touch-startup-image" href="/splash/splash-750x1334.png"
+    media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
 </head>
 
 <body>
   <div id="root">
     <style>
+      /* Matches the iPhone launch screens, so iOS splash → this → app doesn't flash */
       .splash-loader {
         position: fixed;
         inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        display: grid;
+        place-items: center;
         background: #09090f;
-        color: #fff;
-        font-family: system-ui, sans-serif;
-        gap: 1rem;
       }
-
-      .splash-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid rgba(20, 160, 133, 0.3);
-        border-top-color: #14A085;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+      [data-theme="light"] .splash-loader { background: #f2f2f9; }
+      .splash-icon {
+        width: 104px;
+        height: 104px;
+        border-radius: 24%;
+        overflow: hidden;
+        box-shadow: 0 12px 40px rgba(20, 160, 133, 0.28);
       }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
+      .splash-icon svg { width: 100%; height: 100%; display: block; }
     </style>
-    <div class="splash-loader">
-      <div class="splash-spinner"></div>
-      <div style="font-weight:600; font-size:1.1rem; letter-spacing:0.05em;">Higgins Helper</div>
+    <div class="splash-loader" aria-label="Higgins Helper is loading">
+      <div class="splash-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bgA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14A085"/>
+      <stop offset="1" stop-color="#0A5C4E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bgA)"/>
+  <rect x="152" y="232" width="720" height="560" rx="96" fill="#F6F1E7"/>
+  <rect x="208" y="288" width="388" height="448" rx="64" fill="#E6DECD"/>
+  <rect x="632" y="288" width="184" height="208" rx="52" fill="#E6DECD"/>
+  <rect x="632" y="528" width="184" height="208" rx="52" fill="#E6DECD"/>
+  <circle cx="402" cy="512" r="128" fill="none" stroke="#D3C9B4" stroke-width="44"/>
+  <circle cx="402" cy="512" r="128" fill="none" stroke="#F59E0B" stroke-width="44" stroke-linecap="round"
+          stroke-dasharray="563 805" transform="rotate(-90 402 512)"/>
+  <circle cx="724" cy="392" r="46" fill="#22C55E"/>
+  <circle cx="724" cy="632" r="46" fill="#38BDF8"/>
+</svg>
+      </div>
     </div>
   </div>
   <script type="module" src="/src/main.tsx"></script>

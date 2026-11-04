@@ -13,42 +13,55 @@
  * from this browser's localStorage only.
  */
 
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { useAuth }        from "@/firebase/AuthProvider";
 import { LOCAL_MODE }     from "@/firebase/localMode";
 import { useUserStore }   from "@/stores/useUserStore";
 import { useFoodLogStore } from "@/stores/useFoodLogStore";
-import LoginPage          from "@/pages/LoginPage";
-import OnboardingPage     from "@/pages/OnboardingPage";
+// Only signed-out and brand-new users see these, so everyone else never downloads them
+const LoginPage      = lazy(() => import("@/pages/LoginPage"));
+const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
 
 interface AuthGateProps {
   children: ReactNode;
 }
 
-/** Branded full-screen splash, shown while auth or the profile is resolving. */
-function Splash({ message = "Loading…" }: { message?: string }) {
+/**
+ * Full-screen splash while auth or the profile is resolving. The icon sits
+ * exactly where the HTML splash in index.html and the iPhone launch screens
+ * put it, so the hand-off doesn't jump. A message, if any, goes below it
+ * without moving it.
+ */
+function Splash({ message }: { message?: string }) {
   return (
-    <div style={{
-      minHeight: "100dvh", display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      background: "var(--color-bg)", gap: "1rem",
-    }}>
+    <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", background: "var(--color-bg)" }}>
       <img
         src="/icon.svg"
         alt="Higgins Helper"
-        style={{ width: 64, height: 64, borderRadius: "22%", opacity: 0.9 }}
+        style={{ width: 104, height: 104, borderRadius: "24%", boxShadow: "0 12px 40px rgba(20,160,133,0.28)" }}
       />
-      <div style={{
-        fontSize: "0.82rem", color: "var(--color-text-3)",
-        maxWidth: "20rem", textAlign: "center", lineHeight: 1.5,
-      }}>
-        {message}
-      </div>
+      {message && (
+        <div style={{
+          position: "absolute", top: "calc(50% + 76px)", left: 0, right: 0, padding: "0 2rem",
+          fontSize: "0.82rem", color: "var(--color-text-3)", textAlign: "center", lineHeight: 1.5,
+          animation: "fade-in 0.4s ease 0.6s both",
+        }}>
+          {message}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function AuthGate({ children }: AuthGateProps) {
+  return (
+    <Suspense fallback={<Splash />}>
+      <Gate>{children}</Gate>
+    </Suspense>
+  );
+}
+
+function Gate({ children }: AuthGateProps) {
   const { user, loading } = useAuth();
   const hasProfile    = useUserStore((s) => s.userProfile !== null);
   const profileStatus = useUserStore((s) => s.profileStatus);

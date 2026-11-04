@@ -3,13 +3,14 @@
  * @description Search bar + dietary filter chip row for filtering menu items.
  */
 import { useUIStore } from "@/stores";
+import { SearchIcon, XIcon } from "@/components/icons";
 
 const DIETARY_FILTERS = [
-  { icon: "vegan",              label: "Vegan",       color: "#10b981" },
-  { icon: "vegetarian",         label: "Veg",         color: "#22c55e" },
-  { icon: "made_without_gluten",label: "GF",          color: "#f59e0b" },
-  { icon: "halal",              label: "Halal",       color: "#3b82f6" },
-  { icon: "kosher",             label: "Kosher",      color: "#8b5cf6" },
+  { icon: "vegan",               label: "Vegan" },
+  { icon: "vegetarian",          label: "Veg" },
+  { icon: "made_without_gluten", label: "GF" },
+  { icon: "halal",               label: "Halal" },
+  { icon: "kosher",              label: "Kosher" },
 ];
 
 export default function MenuSearch() {
@@ -20,9 +21,7 @@ export default function MenuSearch() {
       {/* Search input */}
       <div style={{ position: "relative" }}>
         <span style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--color-text-3)", pointerEvents: "none" }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
+          <SearchIcon size={16} />
         </span>
         <input
           className="input"
@@ -36,22 +35,23 @@ export default function MenuSearch() {
           <button onClick={() => setSearchQuery("")} style={{
             position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)",
             background: "none", border: "none", cursor: "pointer", color: "var(--color-text-3)", padding: 0,
-          }}>✕</button>
+          }} aria-label="Clear search"><XIcon size={16} /></button>
         )}
       </div>
 
       {/* Dietary filter chips */}
       <div style={{ display: "flex", gap: "0.4rem", overflowX: "auto", scrollbarWidth: "none" }}>
-        {DIETARY_FILTERS.map(({ icon, label, color }) => {
+        {DIETARY_FILTERS.map(({ icon, label }) => {
           const isActive = activeDietaryFilters.includes(icon);
           return (
-            <button key={icon} onClick={() => toggleDietaryFilter(icon)} style={{
+            <button key={icon} onClick={() => toggleDietaryFilter(icon)} aria-pressed={isActive} style={{
               flexShrink: 0,
               padding: "0.28rem 0.7rem",
               borderRadius: "var(--radius-full)",
-              border: `1px solid ${isActive ? color : "var(--color-border)"}`,
-              background: isActive ? `${color}22` : "transparent",
-              color: isActive ? color : "var(--color-text-3)",
+              // One "on" style for every filter: teal, like the rest of the app's selections
+              border: `1px solid ${isActive ? "var(--color-primary)" : "var(--color-border)"}`,
+              background: isActive ? "var(--color-primary-ghost)" : "transparent",
+              color: isActive ? "var(--color-primary-light)" : "var(--color-text-2)",
               fontSize: "0.7rem", fontWeight: 600,
               cursor: "pointer",
               transition: "all 0.18s",

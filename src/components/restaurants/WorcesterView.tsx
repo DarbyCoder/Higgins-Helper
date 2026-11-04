@@ -19,6 +19,7 @@ import {
 } from "@/utils/restaurants";
 import RestaurantMap from "./RestaurantMap";
 import RestaurantMenuSheet from "./RestaurantMenuSheet";
+import { UtensilsIcon } from "@/components/icons";
 
 interface Props {
   onSelectItem: (item: MenuItem, locationName: string, mealName?: string) => void;
@@ -45,7 +46,7 @@ export default function WorcesterView({ onSelectItem }: Props) {
 
       {visible.length === 0 ? (
         <div style={{ textAlign: "center", padding: "1.5rem 1rem" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🍽️</div>
+          <UtensilsIcon size={34} style={{ color: "var(--color-text-3)", display: "block", margin: "0 auto 0.6rem" }} />
           <p style={{ margin: 0, fontWeight: 600, color: "var(--color-text-1)" }}>No matching restaurants</p>
           <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", color: "var(--color-text-3)" }}>
             No nearby menu has an item that matches your search and filters.

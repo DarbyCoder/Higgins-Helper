@@ -172,7 +172,7 @@ interface FoodLogState {
     item: MenuItem,
     locationName: string,
     servings?: number
-  ) => void;
+  ) => string; // the new entry's id, e.g. for Undo
 
   removeFoodEntry: (date: string, entryId: string) => void;
 
@@ -268,6 +268,7 @@ export const useFoodLogStore = create<FoodLogState>()(
           scheduleFirestoreWrite(date, updatedDay);
           return { foodLog: { ...log, [date]: updatedDay } };
         });
+        return entry.id;
       },
 
       // ── Remove Entry ───────────────────────────────────────────────────────

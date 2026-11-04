@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useUserStore } from "@/stores/useUserStore";
 import { useAuth } from "@/firebase/AuthProvider";
 import type { UserProfile, ActivityLevel, WeightGoal } from "@/types";
+import { DumbbellIcon, HandWaveIcon, ScaleIcon, TrendDownIcon } from "@/components/icons";
 
 const TOTAL_STEPS = 8;
 
@@ -19,10 +20,10 @@ const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; description: stri
   { value: "very_active", label: "Extremely Active", description: "Physical job or 2-a-day training — construction, varsity sports, military" },
 ];
 
-const GOAL_OPTIONS: { value: WeightGoal; label: string; emoji: string }[] = [
-  { value: "lose",     label: "Lose Weight",    emoji: "📉" },
-  { value: "maintain", label: "Maintain Weight", emoji: "⚖️" },
-  { value: "gain",     label: "Gain Muscle",    emoji: "💪" },
+const GOAL_OPTIONS: { value: WeightGoal; label: string; Icon: typeof ScaleIcon }[] = [
+  { value: "lose",     label: "Lose Weight",     Icon: TrendDownIcon },
+  { value: "maintain", label: "Maintain Weight", Icon: ScaleIcon },
+  { value: "gain",     label: "Gain Muscle",     Icon: DumbbellIcon },
 ];
 
 const DIETARY_OPTIONS = ["Vegan", "Vegetarian", "Gluten-Free", "Halal", "Kosher"];
@@ -101,6 +102,8 @@ export default function OnboardingPage() {
     <div style={{
       minHeight: "100dvh", display: "flex", flexDirection: "column",
       background: "var(--color-bg)", position: "relative", overflow: "hidden",
+      // Clear the iPhone status bar and home indicator (viewport-fit=cover)
+      paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)",
     }}>
       <style>{`
         @keyframes slideUpFade {
@@ -194,7 +197,14 @@ export default function OnboardingPage() {
           {/* ── Step 1: Name ─────────────────────────────────────── */}
           {step === 1 && (
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>👋</div>
+              <div aria-hidden style={{
+                width: 72, height: 72, borderRadius: 24, margin: "0 auto 1.25rem",
+                display: "grid", placeItems: "center", color: "#fff",
+                background: "linear-gradient(135deg, #1CB394, #0A5C4E)",
+                boxShadow: "0 10px 30px rgba(20,160,133,0.4)",
+              }}>
+                <HandWaveIcon size={36} strokeWidth={1.7} />
+              </div>
               <h2 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "2rem" }}>What should we call you?</h2>
               <input
                 className="huge-input"
@@ -344,7 +354,7 @@ export default function OnboardingPage() {
                   style={{ padding: "1.5rem" }}
                 >
                   <span>{opt.label}</span>
-                  <span style={{ fontSize: "1.5rem" }}>{opt.emoji}</span>
+                  <opt.Icon size={26} style={{ color: "var(--color-primary-light)" }} />
                 </button>
               ))}
             </div>
@@ -411,7 +421,7 @@ export default function OnboardingPage() {
               opacity: saving ? 0.6 : 1, transition: "all 0.2s",
             }}
           >
-            {saving ? "Saving Profile..." : "Let's Go! 🚀"}
+            {saving ? "Saving profile…" : "Let's go"}
           </button>
         )}
       </div>

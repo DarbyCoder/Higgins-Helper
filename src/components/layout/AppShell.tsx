@@ -2,19 +2,29 @@
  * @file src/components/layout/AppShell.tsx
  * @description Main layout wrapper. Provides the animated background gradient,
  * top header, and bottom navigation bar. All pages are rendered as children.
- * Also renders global toast notifications (#1).
+ * Also renders global toast notifications (#1), and slides pages in from the
+ * side when switching tabs.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import { useUIStore } from "@/stores/useUIStore";
 import { LOCAL_MODE } from "@/firebase/localMode";
+import { AlertIcon, BellIcon, CheckIcon, XIcon } from "@/components/icons";
+import { prefersReducedMotion, slidePage, tabDirection } from "@/utils/pageTransition";
+
+/** Bottom-nav order, for which way a tab switch slides. */
+const TAB_ROUTES = ["/", "/menu", "/log", "/profile"];
+
+const TOAST_COLOR = { success: "#2CC5A5", error: "#F87171", info: "#9a9ab4" } as const;
 
 interface Props { children: ReactNode; }
 
 export default function AppShell({ children }: Props) {
   const { toasts, dismissToast } = useUIStore();
+  usePageTransitions();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
@@ -72,7 +82,7 @@ export default function AppShell({ children }: Props) {
           role="status"
           aria-live="polite"
           style={{
-            position: "fixed", bottom: "5.5rem", left: "50%", transform: "translateX(-50%)",
+            position: "fixed", bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)",
             zIndex: 9999, display: "flex", flexDirection: "column", gap: "0.5rem",
             width: "calc(100% - 2rem)", maxWidth: 420, pointerEvents: "none",
           }}
@@ -80,29 +90,43 @@ export default function AppShell({ children }: Props) {
           {toasts.map((toast) => (
             <div
               key={toast.id}
+              className="animate-slide-up"
               style={{
-                padding: "0.75rem 1rem",
-                borderRadius: "var(--radius-md)",
-                background: toast.type === "error"
-                  ? "rgba(239,68,68,0.95)"
-                  : toast.type === "success"
-                  ? "rgba(16,185,129,0.95)"
-                  : "rgba(59,130,246,0.95)",
-                color: "#fff",
-                fontSize: "0.82rem",
-                fontWeight: 500,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-                display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem",
+                display: "flex", alignItems: "center", gap: "0.65rem",
+                padding: "0.7rem 0.6rem 0.7rem 0.9rem",
+                borderRadius: "var(--radius-lg)",
+                // Dark in both themes, like iOS: it floats over the page, not part of it
+                background: "rgba(28,28,38,0.96)",
+                backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 10px 32px rgba(0,0,0,0.35)",
+                color: "#f2f2f8", fontSize: "0.85rem", fontWeight: 500,
                 pointerEvents: "all",
               }}
             >
-              <span>{toast.message}</span>
+              <span aria-hidden style={{ flexShrink: 0, display: "flex", color: TOAST_COLOR[toast.type] }}>
+                {toast.type === "success" ? <CheckIcon size={18} strokeWidth={2.4} />
+                  : toast.type === "error" ? <AlertIcon size={18} />
+                  : <BellIcon size={18} />}
+              </span>
+              <span style={{ flex: 1, minWidth: 0 }}>{toast.message}</span>
+              {toast.action && (
+                <button
+                  onClick={() => { toast.action!.run(); dismissToast(toast.id); }}
+                  style={{
+                    flexShrink: 0, background: "none", border: "none", cursor: "pointer",
+                    color: "#2CC5A5", fontSize: "0.85rem", fontWeight: 700, padding: "0.2rem 0.4rem",
+                  }}
+                >
+                  {toast.action.label}
+                </button>
+              )}
               <button
                 onClick={() => dismissToast(toast.id)}
                 aria-label="Dismiss notification"
-                style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: 0, flexShrink: 0 }}
+                style={{ flexShrink: 0, display: "flex", background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", padding: "0.2rem" }}
               >
-                ×
+                <XIcon size={16} />
               </button>
             </div>
           ))}
@@ -112,3 +136,28 @@ export default function AppShell({ children }: Props) {
   );
 }
 
+/**
+ * On every page change: start the new page at the top, and when it's a tab
+ * switch, slide it in from the side of the tab tapped. Runs before paint, so
+ * the new page never flashes in place first. The intro tour runs its own
+ * slides, so this stays out of its way.
+ */
+function usePageTransitions() {
+  const { pathname } = useLocation();
+  const previous = useRef(pathname);
+  const tourOpen = useUIStore((s) => s.isTourOpen);
+
+  useLayoutEffect(() => {
+    const from = previous.current;
+    previous.current = pathname;
+    if (from === pathname || tourOpen) return;
+
+    window.scrollTo(0, 0);
+    const main = document.querySelector("main");
+    // Already animating: the tour's closing slide is handling this one
+    if (!main || main.getAnimations().length > 0 || prefersReducedMotion()) return;
+
+    const dir = tabDirection(TAB_ROUTES.indexOf(from), TAB_ROUTES.indexOf(pathname));
+    if (dir) slidePage("in", dir);
+  }, [pathname, tourOpen]);
+}
