@@ -128,6 +128,7 @@ export default function LogPage() {
       }}>
         {/* Scan Bistro Order: the secondary action, so it doesn't compete with Add */}
         <button
+          className="pressable"
           onClick={() => navigate("/scan-order")}
           aria-label="Log a Bistro order from a screenshot"
           style={{

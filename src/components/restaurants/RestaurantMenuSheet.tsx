@@ -5,10 +5,11 @@
  * it (cuisine, distance, directions) and a nutrition note below.
  *
  * Sits at zIndex 190, just under NutritionModal (200), so tapping an item
- * opens the nutrition sheet on top of this one.
+ * opens the nutrition sheet on top of this one. Drag it down to close.
  */
-import { useEffect, useRef } from "react";
 import type { MenuItem, Restaurant } from "@/types";
+import Sheet from "@/components/ui/Sheet";
+import { ArrowUpRightIcon } from "@/components/icons";
 import LocationCard from "@/components/menu/LocationCard";
 import { LocationCardErrorBoundary } from "@/components/menu/LocationCardErrorBoundary";
 import { distanceFromClark, formatDistance, mealNameForNow, restaurantToLocation } from "@/utils/restaurants";
@@ -29,6 +30,10 @@ function formatVerified(yearMonth: string): string {
 }
 
 const linkStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 3,
+  flexShrink: 0,
   color: "var(--color-primary-light)",
   fontWeight: 600,
   textDecoration: "none",
@@ -36,75 +41,13 @@ const linkStyle = {
 } as const;
 
 export default function RestaurantMenuSheet({ restaurant, date, onClose, onSelectItem }: Props) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  // Move focus into the sheet when it opens so Escape and Tab start there
-  useEffect(() => {
-    if (restaurant) dialogRef.current?.focus();
-  }, [restaurant]);
-
-  // Escape while focus is back on the page (e.g. after the nutrition sheet
-  // closes). Only reacts when this sheet is the topmost open dialog.
-  useEffect(() => {
-    if (!restaurant) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
-      if (dialogs[dialogs.length - 1] === dialogRef.current) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [restaurant, onClose]);
-
   if (!restaurant) return null;
 
   const location   = restaurantToLocation(restaurant, date);
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.lat},${restaurant.lng}`;
 
   return (
-    /* Backdrop — same pattern as NutritionModal */
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label="Close restaurant menu"
-      onClick={onClose}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose(); } }}
-      style={{
-        position: "fixed", inset: 0, zIndex: 190,
-        background: "rgba(0,0,0,0.6)",
-        backdropFilter: "blur(4px)",
-        display: "flex", alignItems: "flex-end",
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${restaurant.name} menu`}
-        tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          e.stopPropagation();
-          if (e.key === "Escape") onClose();
-        }}
-        className="animate-slide-up"
-        style={{
-          width: "100%", maxWidth: 480, margin: "0 auto",
-          background: "var(--color-surface)",
-          borderRadius: "var(--radius-xl) var(--radius-xl) 0 0",
-          border: "1px solid var(--color-border)",
-          borderBottom: "none",
-          maxHeight: "90dvh",
-          display: "flex", flexDirection: "column",
-          outline: "none",
-        }}
-      >
-        {/* Handle */}
-        <div style={{ display: "flex", justifyContent: "center", paddingTop: "0.75rem" }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--color-surface-3)" }} />
-        </div>
-
-        <div style={{ overflowY: "auto", padding: "0.6rem 1rem 1.25rem", flex: 1 }}>
+    <Sheet key={restaurant.slug} onClose={onClose} ariaLabel={`${restaurant.name} menu`} zIndex={190}>
           {/* Info line */}
           <div style={{
             display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.75rem",
@@ -115,7 +58,7 @@ export default function RestaurantMenuSheet({ restaurant, date, onClose, onSelec
               {" · "}{formatDistance(distanceFromClark(restaurant))}
             </span>
             <a href={directions} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-              Directions ↗
+              Directions <ArrowUpRightIcon size={12} strokeWidth={2.4} />
             </a>
           </div>
 
@@ -134,7 +77,7 @@ export default function RestaurantMenuSheet({ restaurant, date, onClose, onSelec
               <>
                 {" · "}
                 <a href={restaurant.menuUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-                  Full menu ↗
+                  Full menu <ArrowUpRightIcon size={12} strokeWidth={2.4} />
                 </a>
               </>
             )}
@@ -144,8 +87,6 @@ export default function RestaurantMenuSheet({ restaurant, date, onClose, onSelec
               : "Calories (~) are our estimates for a typical portion; actual values vary."}
             {` Hours checked ${formatVerified(restaurant.lastVerified)}.`}
           </p>
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }

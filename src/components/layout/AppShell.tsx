@@ -2,15 +2,21 @@
  * @file src/components/layout/AppShell.tsx
  * @description Main layout wrapper. Provides the animated background gradient,
  * top header, and bottom navigation bar. All pages are rendered as children.
- * Also renders global toast notifications (#1).
+ * Also renders global toast notifications (#1), and slides pages in from the
+ * side when switching tabs.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import { useUIStore } from "@/stores/useUIStore";
 import { LOCAL_MODE } from "@/firebase/localMode";
 import { AlertIcon, BellIcon, CheckIcon, XIcon } from "@/components/icons";
+import { prefersReducedMotion, slidePage, tabDirection } from "@/utils/pageTransition";
+
+/** Bottom-nav order, for which way a tab switch slides. */
+const TAB_ROUTES = ["/", "/menu", "/log", "/profile"];
 
 const TOAST_COLOR = { success: "#2CC5A5", error: "#F87171", info: "#9a9ab4" } as const;
 
@@ -18,6 +24,7 @@ interface Props { children: ReactNode; }
 
 export default function AppShell({ children }: Props) {
   const { toasts, dismissToast } = useUIStore();
+  usePageTransitions();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
@@ -129,3 +136,28 @@ export default function AppShell({ children }: Props) {
   );
 }
 
+/**
+ * On every page change: start the new page at the top, and when it's a tab
+ * switch, slide it in from the side of the tab tapped. Runs before paint, so
+ * the new page never flashes in place first. The intro tour runs its own
+ * slides, so this stays out of its way.
+ */
+function usePageTransitions() {
+  const { pathname } = useLocation();
+  const previous = useRef(pathname);
+  const tourOpen = useUIStore((s) => s.isTourOpen);
+
+  useLayoutEffect(() => {
+    const from = previous.current;
+    previous.current = pathname;
+    if (from === pathname || tourOpen) return;
+
+    window.scrollTo(0, 0);
+    const main = document.querySelector("main");
+    // Already animating: the tour's closing slide is handling this one
+    if (!main || main.getAnimations().length > 0 || prefersReducedMotion()) return;
+
+    const dir = tabDirection(TAB_ROUTES.indexOf(from), TAB_ROUTES.indexOf(pathname));
+    if (dir) slidePage("in", dir);
+  }, [pathname, tourOpen]);
+}

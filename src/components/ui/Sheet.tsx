@@ -9,8 +9,9 @@
  * flick down, and it closes; otherwise it springs back.
  *
  * `onClose` runs after the closing slide finishes, so callers can save there.
+ * To close it from inside (e.g. after Add), call `controlRef.current.close()`.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 interface Props {
@@ -22,14 +23,18 @@ interface Props {
   /** Show a Done button in the header. Default true when there's a title. */
   done?: boolean;
   labelledBy?: string;
+  /** Accessible name when there's no visible title to point at. */
+  ariaLabel?: string;
   zIndex?: number;
+  /** Filled with a close() that slides the sheet away, then calls onClose. */
+  controlRef?: MutableRefObject<{ close: () => void } | null>;
 }
 
 const OPEN_MS = 380;
 const CLOSE_MS = 240;
 const EASE = "cubic-bezier(0.2, 0.9, 0.25, 1)";
 
-export default function Sheet({ title, onClose, children, footer, done = !!title, labelledBy, zIndex = 200 }: Props) {
+export default function Sheet({ title, onClose, children, footer, done = !!title, labelledBy, ariaLabel, zIndex = 200, controlRef }: Props) {
   const sheetRef   = useRef<HTMLDivElement>(null);
   const headerRef  = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -45,10 +50,15 @@ export default function Sheet({ title, onClose, children, footer, done = !!title
     setClosing(true);
     setTimeout(onClose, reduced ? 0 : CLOSE_MS);
   }
+  if (controlRef) controlRef.current = { close };
 
-  // Escape closes; the page under the sheet doesn't scroll
+  // Escape closes the topmost sheet only; the page under the sheet doesn't scroll
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] === sheetRef.current) close();
+    };
     window.addEventListener("keydown", onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -144,6 +154,7 @@ export default function Sheet({ title, onClose, children, footer, done = !!title
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy ?? (title ? "sheet-title" : undefined)}
+        aria-label={ariaLabel}
         tabIndex={-1}
         style={{
           position: "relative",

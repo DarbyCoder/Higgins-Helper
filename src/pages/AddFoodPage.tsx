@@ -194,7 +194,7 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
       {/* Barcode option */}
-      <button onClick={onScan} style={{
+      <button onClick={onScan} className="pressable" style={{
         display: "flex", alignItems: "center", gap: "1rem",
         padding: "1.1rem 1.1rem",
         background: hasBarcodeDetector ? "var(--color-surface-2)" : "var(--color-surface-3)",
@@ -222,7 +222,7 @@ function ChooseMode({ onScan, onManual }: { onScan(): void; onManual(): void }) 
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-3)" strokeWidth={2} strokeLinecap="round"><polyline points="9,18 15,12 9,6" /></svg>
       </button>
 
-      <button onClick={onManual} style={{
+      <button onClick={onManual} className="pressable" style={{
         display: "flex", alignItems: "center", gap: "1rem",
         padding: "1.1rem 1.1rem",
         background: "var(--color-surface-2)",

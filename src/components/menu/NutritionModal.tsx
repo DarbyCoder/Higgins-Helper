@@ -8,12 +8,13 @@
  * The label is drawn as SVG in the theme's text colour, so it isn't a white
  * slab in dark mode.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MenuItem, MealSlot } from "@/types";
 import { useFoodLogStore, useDateStore, useUIStore } from "@/stores";
 import MacroTiles from "@/components/nutrition/MacroTiles";
 import DietBadges from "@/components/nutrition/DietBadges";
 import { ChevronDownIcon, MinusIcon, PlusIcon } from "@/components/icons";
+import Sheet from "@/components/ui/Sheet";
 
 interface Props {
   item: MenuItem | null;
@@ -177,6 +178,7 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
   const { selectedDate }  = useDateStore();
   const { addFoodEntry, removeFoodEntry }  = useFoodLogStore();
   const showToast = useUIStore((s) => s.showToast);
+  const sheet = useRef<{ close: () => void } | null>(null);
 
   // Reset state when item changes
   useEffect(() => {
@@ -202,7 +204,7 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
     const date = selectedDate;
     const id = addFoodEntry(date, mealSlot, item, locationName, servings);
     try { navigator.vibrate?.(30); } catch { /* not supported */ }
-    onClose();
+    sheet.current?.close();
     showToast(`Added to ${mealLabel}`, "success", {
       label: "Undo",
       run: () => removeFoodEntry(date, id),
@@ -217,48 +219,33 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
     fat:      item.totalFat * servings,
   };
 
-  return (
-    /* Backdrop (#11) — keyboard-accessible so pressing Enter/Space or clicking closes the modal */
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label="Close nutrition panel"
-      onClick={onClose}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " " || e.key === "Escape") { e.preventDefault(); onClose(); } }}
-      style={{
-        position: "fixed", inset: 0, zIndex: 200,
-        background: "rgba(0,0,0,0.55)",
-        backdropFilter: "blur(4px)",
-        display: "flex", alignItems: "flex-end",
-        animation: "fade-in 0.25s ease both",
-      }}
-    >
-      {/* Sheet — clicking inside stops propagation so it doesn't close the modal */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={modalId}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => { if (e.key !== "Escape") e.stopPropagation(); }}
-        className="animate-slide-up"
-        style={{
-          width: "100%", maxWidth: 480, margin: "0 auto",
-          background: "var(--color-surface)",
-          borderRadius: "28px 28px 0 0",
-          border: "1px solid var(--color-border)",
-          borderBottom: "none",
-          boxShadow: "0 -12px 40px rgba(0,0,0,0.35)",
-          maxHeight: "90dvh",
-          display: "flex", flexDirection: "column",
-        }}
-      >
-        {/* Handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "0.6rem 0 0.4rem" }}>
-          <div style={{ width: 38, height: 5, borderRadius: 3, background: "var(--color-border-2)" }} />
+  const footer = (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem" }}>
+        {/* Servings counter */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "var(--color-surface-2)", borderRadius: "var(--radius-full)", padding: "0.25rem", border: "1px solid var(--color-border)" }}>
+          <button onClick={() => setServings((s) => Math.max(0.5, s - 0.5))} style={STEP_BUTTON} aria-label="Fewer servings">
+            <MinusIcon size={15} strokeWidth={2.4} />
+          </button>
+          <span style={{ fontSize: "0.9rem", fontWeight: 700, minWidth: 30, textAlign: "center" }} aria-label={`${servings} servings`}>{servings}</span>
+          <button onClick={() => setServings((s) => s + 0.5)} style={STEP_BUTTON} aria-label="More servings">
+            <PlusIcon size={15} strokeWidth={2.4} />
+          </button>
         </div>
+        {/* Meal slot selector */}
+        <select className="select" value={mealSlot} onChange={(e) => setMealSlot(e.target.value as MealSlot)} style={{ flex: 1 }} aria-label="Meal">
+          {MEAL_SLOTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      </div>
+      <button className="btn-primary" onClick={handleAdd} style={{ width: "100%", justifyContent: "center", padding: "0.85rem" }}>
+        Add {item.isEstimate ? "~" : ""}{Math.round(scaled.calories)} cal to {mealLabel}
+      </button>
+    </div>
+  );
 
-        {/* Scrollable content */}
-        <div style={{ overflowY: "auto", padding: "0.4rem 1.25rem 1.25rem", flex: 1, display: "flex", flexDirection: "column", gap: "1rem" }}>
+  return (
+    <Sheet key={item.id} onClose={onClose} footer={footer} labelledBy={modalId} controlRef={sheet}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", paddingTop: "0.15rem" }}>
           {/* Item header */}
           <div>
             <h2 id={modalId} style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2, color: "var(--color-text-1)" }}>{item.name}</h2>
@@ -319,34 +306,6 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
           )}
         </div>
 
-        {/* Sticky footer: add to log */}
-        <div style={{
-          padding: "0.85rem 1.25rem calc(0.85rem + env(safe-area-inset-bottom, 0px))",
-          borderTop: "1px solid var(--color-border)",
-          background: "var(--color-surface)",
-          display: "flex", flexDirection: "column", gap: "0.65rem",
-        }}>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            {/* Servings counter */}
-            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "var(--color-surface-2)", borderRadius: "var(--radius-full)", padding: "0.25rem", border: "1px solid var(--color-border)" }}>
-              <button onClick={() => setServings((s) => Math.max(0.5, s - 0.5))} style={STEP_BUTTON} aria-label="Fewer servings">
-                <MinusIcon size={15} strokeWidth={2.4} />
-              </button>
-              <span style={{ fontSize: "0.9rem", fontWeight: 700, minWidth: 30, textAlign: "center" }} aria-label={`${servings} servings`}>{servings}</span>
-              <button onClick={() => setServings((s) => s + 0.5)} style={STEP_BUTTON} aria-label="More servings">
-                <PlusIcon size={15} strokeWidth={2.4} />
-              </button>
-            </div>
-            {/* Meal slot selector */}
-            <select className="select" value={mealSlot} onChange={(e) => setMealSlot(e.target.value as MealSlot)} style={{ flex: 1 }} aria-label="Meal">
-              {MEAL_SLOTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
-          <button className="btn-primary" onClick={handleAdd} style={{ width: "100%", justifyContent: "center", padding: "0.85rem" }}>
-            Add {item.isEstimate ? "~" : ""}{Math.round(scaled.calories)} cal to {mealLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }

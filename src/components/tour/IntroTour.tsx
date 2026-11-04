@@ -32,6 +32,7 @@ import { LOCAL_MODE } from "@/firebase/localMode";
 import { useMealReminderSwitch } from "@/hooks/useMealReminderSwitch";
 import { isIOS } from "@/hooks/useInstallPrompt";
 import { INTRO_VERSION, WELCOME, REMINDERS, TOUR_STEPS } from "./tourSteps";
+import { PAGE_OUT_MS, activeTab, activeTabIndex, slidePage, tabDirection, tabIndexOf } from "@/utils/pageTransition";
 
 /** Space between the highlighted element and the edge of the spotlight. */
 const SPOT_PAD = 6;
@@ -43,10 +44,6 @@ const EDGE = 16;
 const TARGET_TIMEOUT_MS = 1500;
 /** How long the highlights take to glide to the next step (and along the tab bar). */
 const GLIDE_MS = 420;
-/** Page transition between tabs: the old page slides out, then the new one in. */
-const PAGE_OUT_MS = 200;
-const PAGE_IN_MS  = 380;
-const PAGE_SLIDE_PX = 44;
 const HIGHLIGHT_FADE = `opacity ${PAGE_OUT_MS}ms ease`;
 /** The dimmed backdrop around the spotlight. */
 const DIM = "rgba(5, 5, 12, 0.74)";
@@ -507,52 +504,6 @@ const TAB_CHIP: CSSProperties = {
   color: "var(--color-primary-light)",
   fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.03em",
 };
-
-/** The bottom-nav button of the page that's open (NavLink marks it aria-current). */
-function activeTab(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('nav a[aria-current="page"]');
-}
-
-/** Position of the open tab in the bottom nav, or −1 off the tabs. */
-function activeTabIndex(): number {
-  const tab = activeTab();
-  return tab ? Array.from(document.querySelectorAll("nav a")).indexOf(tab) : -1;
-}
-
-/** Position in the bottom nav of the tab that opens `route`, or −1. */
-function tabIndexOf(route: string): number {
-  return Array.from(document.querySelectorAll("nav a")).findIndex((a) => a.getAttribute("href") === route);
-}
-
-/** 1 when moving to a tab on the right, −1 to the left, 0 if either isn't a tab. */
-function tabDirection(from: number, to: number): -1 | 0 | 1 {
-  if (from < 0 || to < 0 || from === to) return 0;
-  return to > from ? 1 : -1;
-}
-
-/**
- * Slides the page area out towards the side away from `dir`, or in from the
- * side of `dir`. Moves it with `left`, not a transform: a transform would
- * become the frame for fixed elements inside the page (the Log page's
- * buttons) and drag them along. The slide-out holds its end state so the old
- * page stays hidden until the new one slides in.
- */
-function slidePage(phase: "out" | "in", dir: 1 | -1): Animation {
-  const main = document.querySelector<HTMLElement>("main")!;
-  main.style.position = "relative";
-  if (phase === "out") {
-    return main.animate(
-      [{ opacity: 1, left: "0px" }, { opacity: 0, left: `${-dir * PAGE_SLIDE_PX}px` }],
-      { duration: PAGE_OUT_MS, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" },
-    );
-  }
-  const anim = main.animate(
-    [{ opacity: 0, left: `${dir * PAGE_SLIDE_PX}px` }, { opacity: 1, left: "0px" }],
-    { duration: PAGE_IN_MS, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
-  );
-  anim.finished.catch(() => {}).then(() => { main.style.position = ""; });
-  return anim;
-}
 
 /**
  * Scrolls so the element and the tooltip under it sit centred as one block,

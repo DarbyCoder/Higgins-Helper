@@ -39,7 +39,7 @@ export default function DashboardPage() {
 
       {/* ── Into the menu ── */}
       <button
-        className="glass"
+        className="glass pressable"
         onClick={() => navigate("/menu")}
         style={{
           width: "100%", display: "flex", alignItems: "center", gap: "0.75rem",

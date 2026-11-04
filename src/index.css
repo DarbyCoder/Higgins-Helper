@@ -166,7 +166,11 @@ body { margin: 0; min-height: 100dvh; background: var(--color-bg); }
   box-shadow: 0 4px 20px rgba(20,160,133,0.35);
 }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(20,160,133,0.5); }
-.btn-primary:active { transform: translateY(0); }
+.btn-primary:active { transform: scale(0.97); box-shadow: 0 2px 12px rgba(20,160,133,0.35); }
+.btn-ghost:active, .btn-icon:active { transform: scale(0.95); }
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:active, .btn-ghost:active, .btn-icon:active { transform: none; }
+}
 
 /* Ghost button */
 .btn-ghost {
