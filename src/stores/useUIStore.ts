@@ -22,6 +22,13 @@ export interface Toast {
   id: string;
   message: string;
   type: "error" | "info" | "success";
+  /** A button on the toast, e.g. Undo. Tapping it also dismisses the toast. */
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  run: () => void;
 }
 
 /** Which side of the Menu tab is showing. */
@@ -77,7 +84,7 @@ interface UIState {
   resetUI: () => void;
 
   /** Shows a temporary toast notification. Auto-dismisses after 5 seconds. */
-  showToast: (message: string, type?: Toast["type"]) => void;
+  showToast: (message: string, type?: Toast["type"], action?: ToastAction) => void;
 
   /** Dismisses a toast by its ID. */
   dismissToast: (id: string) => void;
@@ -138,9 +145,9 @@ export const useUIStore = create<UIState>((set, get) => ({
       activeDietaryFilters: [],
     }),
 
-  showToast: (message, type = "info") => {
+  showToast: (message, type = "info", action) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    set((state) => ({ toasts: [...state.toasts, { id, message, type }] }));
+    set((state) => ({ toasts: [...state.toasts, { id, message, type, action }] }));
     // Auto-dismiss after 5 seconds
     setTimeout(() => {
       set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
