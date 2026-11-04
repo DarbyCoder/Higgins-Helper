@@ -13,13 +13,14 @@
  * from this browser's localStorage only.
  */
 
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { useAuth }        from "@/firebase/AuthProvider";
 import { LOCAL_MODE }     from "@/firebase/localMode";
 import { useUserStore }   from "@/stores/useUserStore";
 import { useFoodLogStore } from "@/stores/useFoodLogStore";
-import LoginPage          from "@/pages/LoginPage";
-import OnboardingPage     from "@/pages/OnboardingPage";
+// Only signed-out and brand-new users see these, so everyone else never downloads them
+const LoginPage      = lazy(() => import("@/pages/LoginPage"));
+const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
 
 interface AuthGateProps {
   children: ReactNode;
@@ -49,6 +50,14 @@ function Splash({ message = "Loading…" }: { message?: string }) {
 }
 
 export default function AuthGate({ children }: AuthGateProps) {
+  return (
+    <Suspense fallback={<Splash />}>
+      <Gate>{children}</Gate>
+    </Suspense>
+  );
+}
+
+function Gate({ children }: AuthGateProps) {
   const { user, loading } = useAuth();
   const hasProfile    = useUserStore((s) => s.userProfile !== null);
   const profileStatus = useUserStore((s) => s.profileStatus);

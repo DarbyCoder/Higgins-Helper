@@ -46,6 +46,19 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // React and Firebase in files of their own: they change far less often
+        // than the app, so after an app update phones keep the cached copies
+        manualChunks(id) {
+          if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return "react";
+          if (/node_modules\/(firebase|@firebase|re2js|idb|tslib)\//.test(id)) return "firebase";
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     // Fail loudly if 5173 is taken instead of silently drifting to 5174+.
