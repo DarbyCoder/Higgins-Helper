@@ -2,17 +2,20 @@
  * @file src/components/tour/IntroTour.tsx
  * @description First-launch intro tour: a personal welcome card, then a
  * spotlight that dims the app and highlights one real element at a time
- * (switching tabs as needed), then a closing card. Content lives in
+ * (switching tabs as needed). It ends on the Notifications section of Profile,
+ * where the tooltip offers to turn meal reminders on. Content lives in
  * tourSteps.ts.
  *
  * The tab the tour has opened stays lit in the bottom nav and is named in the
- * tooltip. Between steps the highlights glide to their new place, so when the
- * tour changes tab the lit tab slides along the nav, the new page fades in,
- * the tab pops and the tooltip slides in from that side.
+ * tooltip. Between steps the highlights glide to their new place. When the
+ * tour changes tab, the old page slides out and the new one slides in from the
+ * side of the tab it's going to, like a carousel; the lit tab glides along the
+ * nav and pops, and the tooltip slides in from that side. "Done" on the last
+ * step ends on the Today page with the same slide.
  *
  * Plays once per user. "Seen" is stored on the Firestore profile
  * (introVersionSeen), so it follows the user across devices. It's recorded on
- * Finish or Skip, not on open, so closing the app halfway replays it. Tapping
+ * the last step's buttons or Skip, not on open, so closing the app halfway replays it. Tapping
  * the header logo replays it any time.
  *
  * The start decision waits for Firestore to answer: the profile cached in
@@ -26,7 +29,9 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUIStore, useUserStore } from "@/stores";
 import { LOCAL_MODE } from "@/firebase/localMode";
-import { INTRO_VERSION, WELCOME, DONE, TOUR_STEPS } from "./tourSteps";
+import { useMealReminderSwitch } from "@/hooks/useMealReminderSwitch";
+import { isIOS } from "@/hooks/useInstallPrompt";
+import { INTRO_VERSION, WELCOME, REMINDERS, TOUR_STEPS } from "./tourSteps";
 
 /** Space between the highlighted element and the edge of the spotlight. */
 const SPOT_PAD = 6;
@@ -38,6 +43,11 @@ const EDGE = 16;
 const TARGET_TIMEOUT_MS = 1500;
 /** How long the highlights take to glide to the next step (and along the tab bar). */
 const GLIDE_MS = 420;
+/** Page transition between tabs: the old page slides out, then the new one in. */
+const PAGE_OUT_MS = 200;
+const PAGE_IN_MS  = 380;
+const PAGE_SLIDE_PX = 44;
+const HIGHLIGHT_FADE = `opacity ${PAGE_OUT_MS}ms ease`;
 /** The dimmed backdrop around the spotlight. */
 const DIM = "rgba(5, 5, 12, 0.74)";
 /** Only one tour overlay exists at a time, so a fixed id is safe. */
@@ -76,7 +86,7 @@ export default function IntroTour() {
   return isOpen ? createPortal(<TourOverlay />, document.body) : null;
 }
 
-/** pos 0 = welcome card, 1…N = spotlight steps, N + 1 = closing card. */
+/** pos 0 = welcome card, 1…N = spotlight steps; N is the meal reminders step. */
 function TourOverlay() {
   const navigate      = useNavigate();
   const { pathname }  = useLocation();
@@ -88,6 +98,10 @@ function TourOverlay() {
   const [spot, setSpot] = useState<Spot | null>(null);
   const [tipH, setTipH] = useState(180);
   const [, rerender]    = useReducer((n: number) => n + 1, 0);
+  /** The old page is sliding out: its highlight fades with it. */
+  const [pageLeaving, setPageLeaving] = useState(false);
+  const reminders       = useMealReminderSwitch();
+  const [reminderFailed, setReminderFailed] = useState(false);
 
   const direction  = useRef<1 | -1>(1);
   const startPath  = useRef(pathname);
@@ -101,14 +115,19 @@ function TourOverlay() {
   const tabBefore  = useRef<number | null>(null);
   /** Which side the tooltip slides in from: −1 left, 1 right, 0 rises (same tab). */
   const enterFrom  = useRef<-1 | 0 | 1>(0);
+  /** The old page's slide-out, held at its end until the new page slides in. */
+  const pageOut    = useRef<Animation | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const ending     = useRef(false);
 
-  const step   = pos >= 1 && pos <= TOUR_STEPS.length ? TOUR_STEPS[pos - 1]! : null;
+  const step   = pos >= 1 ? TOUR_STEPS[pos - 1] ?? null : null;
+  const isLast = pos === TOUR_STEPS.length;
   const ready  = !step || (spot?.pos === pos && spot.settled);
   const motion = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function go(delta: 1 | -1) {
     direction.current = delta;
-    setPos((p) => Math.min(Math.max(p + delta, 0), TOUR_STEPS.length + 1));
+    setPos((p) => Math.min(Math.max(p + delta, 0), TOUR_STEPS.length));
   }
 
   function finish(route: string) {
@@ -119,6 +138,42 @@ function TourOverlay() {
 
   /** Skip leaves the user where they started (e.g. Profile, after a replay). */
   const skip = () => finish(startPath.current);
+
+  /** "Done" on the last step: the overlay fades as the page slides over to Today. */
+  function finishAtHome() {
+    if (ending.current) return;
+    ending.current = true;
+    const dir = tabDirection(activeTabIndex(), tabIndexOf("/"));
+    if (!motion || !dir) {
+      finish("/");
+      return;
+    }
+    overlayRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PAGE_OUT_MS, fill: "forwards" });
+    const out = slidePage("out", dir);
+    out.finished.catch(() => {}).then(() => {
+      finish("/");
+      slidePage("in", dir);
+      out.cancel();
+    });
+  }
+
+  // ── Meal reminders step: what this device allows decides the words and buttons
+  const reminderView =
+    reminders.permission === "unsupported" ? (isIOS ? "installFirst" : "unsupported")
+    : reminders.permission === "denied"    ? "blocked"
+    : !reminders.enabled                   ? "offer"
+    : reminders.permission === "granted"   ? "on"
+    : "allowHere";
+  const reminderCopy = REMINDERS[reminderView];
+  const reminderCta  = "cta" in reminderCopy ? reminderCopy : null;
+
+  /** Must run straight from the tap: the browser only asks for permission then. */
+  async function turnOnReminders() {
+    setReminderFailed(false);
+    const result = await (reminderView === "offer" ? reminders.turnOn() : reminders.allowOnThisDevice());
+    // "ok" and "denied" show themselves: the step switches to "on" or "blocked"
+    if (result === "failed") setReminderFailed(true);
+  }
 
   // ── Open the step's tab, find its element and keep the spotlight on it ────
   // Tracked every frame while the step shows, so the spotlight follows smooth
@@ -136,22 +191,37 @@ function TourOverlay() {
       return;
     }
     if (step.route && pathname !== step.route) {
+      const route = step.route;
       tabBefore.current = activeTabIndex();
-      navigate(step.route);
-      return; // runs again once the new page is showing
+      const dir = tabDirection(tabBefore.current, tabIndexOf(route));
+      if (!motion || !dir) {
+        navigate(route);
+        return; // runs again once the new page is showing
+      }
+      // Slide the old page out first, then open the new one. The highlight
+      // fades out with it and fades in on the new page's element, rather than
+      // gliding across a page that's changing under it.
+      setPageLeaving(true);
+      shown.current = { rect: null, tab: shown.current.tab };
+      let navigated = false;
+      const out = slidePage("out", dir);
+      pageOut.current = out;
+      out.finished.then(() => { navigated = true; navigate(route); }, () => {});
+      return () => { if (!navigated) out.cancel(); };
     }
 
-    // ── Just switched tabs: fade the page in, pop the tab when the glide reaches it
+    // ── Just switched tabs: slide the new page in, pop the tab when the glide reaches it
     enterFrom.current = 0;
     if (tabBefore.current !== null) {
       const after = activeTabIndex();
-      enterFrom.current = after > tabBefore.current ? 1 : after < tabBefore.current ? -1 : 0;
+      enterFrom.current = tabDirection(tabBefore.current, after);
       tabBefore.current = null;
       if (motion) {
-        document.querySelector("main")?.animate(
-          [{ opacity: 0 }, { opacity: 1 }],
-          { duration: 320, easing: "ease-out" },
-        );
+        if (enterFrom.current) slidePage("in", enterFrom.current);
+        else document.querySelector("main")?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: "ease-out" });
+        // The slide-in has taken over from the held slide-out
+        pageOut.current?.cancel();
+        pageOut.current = null;
         activeTab()?.animate(
           [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
           { duration: 380, delay: GLIDE_MS - 120, easing: "ease-out" },
@@ -169,6 +239,7 @@ function TourOverlay() {
       if (el && el.getClientRects().length > 0) {
         if (!glideStart) {
           glideStart = now;
+          setPageLeaving(false);
           scrollIntoPlace(el, tipHRef.current, motion);
         }
 
@@ -177,8 +248,10 @@ function TourOverlay() {
         const tab    = tabEl ? rectOf(tabEl) : null;
 
         // Glide from where the highlights were towards where the elements are
-        // now (they may still be moving while the page scrolls)
-        const t = motion && from.rect ? Math.min((now - glideStart) / GLIDE_MS, 1) : 1;
+        // now (they may still be moving while the page scrolls). After a page
+        // change only the tab glides; the highlight fades in where it lands,
+        // and the tooltip waits for the glide, which outlasts the page slide-in.
+        const t = motion && (from.rect || from.tab) ? Math.min((now - glideStart) / GLIDE_MS, 1) : 1;
         const e = easeInOutCubic(t);
         const next = {
           rect: from.rect ? lerpRect(from.rect, target, e) : target,
@@ -243,7 +316,7 @@ function TourOverlay() {
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") skip();
-      else if (e.key === "ArrowRight" && pos <= TOUR_STEPS.length) go(1);
+      else if (e.key === "ArrowRight" && pos < TOUR_STEPS.length) go(1);
       else if (e.key === "ArrowLeft" && pos > 0) go(-1);
     };
     window.addEventListener("keydown", onKey);
@@ -274,7 +347,7 @@ function TourOverlay() {
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="tour-title" style={{ position: "fixed", inset: 0, zIndex: 10000 }}>
+    <div ref={overlayRef} role="dialog" aria-modal="true" aria-labelledby="tour-title" style={{ position: "fixed", inset: 0, zIndex: 10000 }}>
       {/* Shield: the app can't be tapped mid-tour */}
       <div aria-hidden style={{ position: "fixed", inset: 0, touchAction: "none" }} />
 
@@ -283,7 +356,7 @@ function TourOverlay() {
         <defs>
           <mask id={MASK_ID}>
             <rect width="100%" height="100%" fill="white" />
-            {hole && <rect x={hole.left} y={hole.top} width={hole.width} height={hole.height} rx={14} fill="black" />}
+            {hole && <rect x={hole.left} y={hole.top} width={hole.width} height={hole.height} rx={14} fill="black" style={{ opacity: pageLeaving ? 0 : 1, transition: HIGHLIGHT_FADE }} />}
             {tabHole && <rect x={tabHole.left} y={tabHole.top} width={tabHole.width} height={tabHole.height} rx={12} fill="black" />}
           </mask>
         </defs>
@@ -307,6 +380,7 @@ function TourOverlay() {
           borderRadius: 14,
           boxShadow: "0 0 0 2px var(--color-primary-light), 0 0 24px 4px rgba(20,160,133,0.45)",
           pointerEvents: "none",
+          opacity: pageLeaving ? 0 : 1, transition: HIGHLIGHT_FADE,
         }} />
       )}
 
@@ -324,30 +398,54 @@ function TourOverlay() {
               </span>
             ) : <span />}
             <div style={{ display: "flex", alignItems: "center", gap: "0.15rem" }}>
-              <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--color-text-3)" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--color-text-3)", padding: isLast ? "0.25rem 0" : undefined }}>
                 {pos} of {TOUR_STEPS.length}
               </span>
-              <button onClick={skip} style={TEXT_BUTTON}>Skip</button>
+              {/* The last step's own buttons end the tour */}
+              {!isLast && <button onClick={skip} style={TEXT_BUTTON}>Skip</button>}
             </div>
           </div>
           <h2 id="tour-title" style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 0.35rem" }}>
-            {step.title}
+            {step.reminders ? reminderCopy.title : step.title}
           </h2>
           <p style={{ fontSize: "0.85rem", color: "var(--color-text-2)", lineHeight: 1.5, margin: 0 }}>
-            {step.body}
+            {step.reminders ? reminderCopy.body : step.body}
           </p>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.9rem" }}>
-            <button className="btn-ghost" onClick={() => go(-1)} style={{ padding: "0.5rem 1rem", fontSize: "0.82rem" }}>
-              Back
-            </button>
-            <button ref={primaryRef} className="btn-primary" onClick={() => go(1)} style={{ padding: "0.5rem 1.2rem", fontSize: "0.82rem" }}>
-              Next
-            </button>
+          {step.reminders && reminderFailed && (
+            <p role="alert" style={{ fontSize: "0.78rem", color: "#ef4444", lineHeight: 1.45, margin: "0.5rem 0 0" }}>
+              {REMINDERS.failed}
+            </p>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "0.5rem", marginTop: "0.9rem" }}>
+            {step.reminders && reminderCta ? (
+              <>
+                <button onClick={() => go(-1)} style={{ ...TEXT_BUTTON, marginRight: "auto" }}>
+                  Back
+                </button>
+                {/* "Not now" leaves them on Profile, next to the switch */}
+                <button className="btn-ghost" onClick={() => finish(pathname)} disabled={reminders.busy} style={{ padding: "0.5rem 0.9rem", fontSize: "0.82rem" }}>
+                  {reminderCta.decline}
+                </button>
+                <button ref={primaryRef} className="btn-primary" onClick={turnOnReminders} disabled={reminders.busy} style={{ padding: "0.5rem 1.1rem", fontSize: "0.82rem" }}>
+                  {reminderCta.cta}
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn-ghost" onClick={() => go(-1)} style={{ padding: "0.5rem 1rem", fontSize: "0.82rem" }}>
+                  Back
+                </button>
+                {/* The last step's "Done" ends the tour on the Today page */}
+                <button ref={primaryRef} className="btn-primary" onClick={isLast ? finishAtHome : () => go(1)} style={{ padding: "0.5rem 1.2rem", fontSize: "0.82rem" }}>
+                  {isLast ? REMINDERS.done : "Next"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── Welcome and closing cards ── */}
+      {/* ── Welcome card ── */}
       {!step && (
         <div style={{
           position: "fixed", inset: 0, padding: EDGE,
@@ -360,43 +458,24 @@ function TourOverlay() {
             pointerEvents: "auto",
             animation: motion ? "fade-up 0.35s ease both" : undefined,
           }}>
-            {pos === 0 ? (
-              <>
-                <img src={WELCOME.photo} alt={WELCOME.author} style={{
-                  width: 84, height: 84, borderRadius: "50%", objectFit: "cover",
-                  border: "3px solid var(--color-primary)",
-                  boxShadow: "0 4px 16px rgba(20,160,133,0.35)",
-                  margin: "0 auto 1rem",
-                }} />
-                <h2 id="tour-title" style={{ fontSize: "1.3rem", fontWeight: 800, margin: "0 0 0.6rem" }}>
-                  {firstName ? `Hey ${firstName}, I'm ${WELCOME.author} 👋` : `Hey, I'm ${WELCOME.author} 👋`}
-                </h2>
-                <p style={{ fontSize: "0.9rem", color: "var(--color-text-2)", lineHeight: 1.55, margin: "0 0 1.4rem" }}>
-                  {WELCOME.message}
-                </p>
-                <button ref={primaryRef} className="btn-primary" onClick={() => go(1)} style={{ width: "100%", padding: "0.85rem" }}>
-                  Show me around
-                </button>
-                <button onClick={skip} style={{ ...TEXT_BUTTON, display: "block", width: "100%", marginTop: "0.6rem", padding: "0.5rem" }}>
-                  Skip for now
-                </button>
-              </>
-            ) : (
-              <>
-                <h2 id="tour-title" style={{ fontSize: "1.3rem", fontWeight: 800, margin: "0 0 0.6rem" }}>
-                  {DONE.title}
-                </h2>
-                <p style={{ fontSize: "0.9rem", color: "var(--color-text-2)", lineHeight: 1.55, margin: "0 0 1.4rem" }}>
-                  {DONE.message}
-                </p>
-                <button ref={primaryRef} className="btn-primary" onClick={() => finish(DONE.ctaRoute)} style={{ width: "100%", padding: "0.85rem" }}>
-                  {DONE.cta}
-                </button>
-                <button onClick={() => go(-1)} style={{ ...TEXT_BUTTON, display: "block", width: "100%", marginTop: "0.6rem", padding: "0.5rem" }}>
-                  Back
-                </button>
-              </>
-            )}
+            <img src={WELCOME.photo} alt={WELCOME.author} style={{
+              width: 84, height: 84, borderRadius: "50%", objectFit: "cover",
+              border: "3px solid var(--color-primary)",
+              boxShadow: "0 4px 16px rgba(20,160,133,0.35)",
+              margin: "0 auto 1rem",
+            }} />
+            <h2 id="tour-title" style={{ fontSize: "1.3rem", fontWeight: 800, margin: "0 0 0.6rem" }}>
+              {firstName ? `Hey ${firstName}, I'm ${WELCOME.author} 👋` : `Hey, I'm ${WELCOME.author} 👋`}
+            </h2>
+            <p style={{ fontSize: "0.9rem", color: "var(--color-text-2)", lineHeight: 1.55, margin: "0 0 1.4rem" }}>
+              {WELCOME.message}
+            </p>
+            <button ref={primaryRef} className="btn-primary" onClick={() => go(1)} style={{ width: "100%", padding: "0.85rem" }}>
+              Show me around
+            </button>
+            <button onClick={skip} style={{ ...TEXT_BUTTON, display: "block", width: "100%", marginTop: "0.6rem", padding: "0.5rem" }}>
+              Skip for now
+            </button>
           </div>
         </div>
       )}
@@ -438,6 +517,41 @@ function activeTab(): HTMLElement | null {
 function activeTabIndex(): number {
   const tab = activeTab();
   return tab ? Array.from(document.querySelectorAll("nav a")).indexOf(tab) : -1;
+}
+
+/** Position in the bottom nav of the tab that opens `route`, or −1. */
+function tabIndexOf(route: string): number {
+  return Array.from(document.querySelectorAll("nav a")).findIndex((a) => a.getAttribute("href") === route);
+}
+
+/** 1 when moving to a tab on the right, −1 to the left, 0 if either isn't a tab. */
+function tabDirection(from: number, to: number): -1 | 0 | 1 {
+  if (from < 0 || to < 0 || from === to) return 0;
+  return to > from ? 1 : -1;
+}
+
+/**
+ * Slides the page area out towards the side away from `dir`, or in from the
+ * side of `dir`. Moves it with `left`, not a transform: a transform would
+ * become the frame for fixed elements inside the page (the Log page's
+ * buttons) and drag them along. The slide-out holds its end state so the old
+ * page stays hidden until the new one slides in.
+ */
+function slidePage(phase: "out" | "in", dir: 1 | -1): Animation {
+  const main = document.querySelector<HTMLElement>("main")!;
+  main.style.position = "relative";
+  if (phase === "out") {
+    return main.animate(
+      [{ opacity: 1, left: "0px" }, { opacity: 0, left: `${-dir * PAGE_SLIDE_PX}px` }],
+      { duration: PAGE_OUT_MS, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" },
+    );
+  }
+  const anim = main.animate(
+    [{ opacity: 0, left: `${dir * PAGE_SLIDE_PX}px` }, { opacity: 1, left: "0px" }],
+    { duration: PAGE_IN_MS, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+  );
+  anim.finished.catch(() => {}).then(() => { main.style.position = ""; });
+  return anim;
 }
 
 /**

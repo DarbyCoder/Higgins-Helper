@@ -1,13 +1,16 @@
 /**
  * @file src/components/tour/tourSteps.ts
  * @description Content of the intro tour: the personal welcome card, the
- * spotlight steps and the closing card. Edit the words here; the overlay in
- * IntroTour.tsx only handles layout and behaviour.
+ * spotlight steps and the meal reminders step that ends it. Edit the words
+ * here; the overlay in IntroTour.tsx only handles layout and behaviour.
  *
  * Each spotlight step points at an element tagged `data-tour="<target>"`.
  * A step whose target isn't on screen is skipped. A step that opens a tab can
  * list the tab's nav button under `requires`, so it's skipped (without opening
  * the page) for users who don't have that tab.
+ *
+ * The tour ends on the Notifications section of Profile, encouraging the user
+ * to turn on meal reminders (REMINDERS).
  */
 
 /**
@@ -26,13 +29,57 @@ export const WELCOME = {
     "look around. It takes about 30 seconds.",
 };
 
-export const DONE = {
-  title: "You're all set 🎉",
-  message:
-    "Start by finding something good on today's menu. Tap the logo any time to " +
-    "see this tour again.",
-  cta: "Browse today's menu",
-  ctaRoute: "/menu",
+/**
+ * The last step: the Notifications section on Profile, with a button that
+ * turns meal reminders on. The words change with what this device allows.
+ */
+export const REMINDERS = {
+  /** Reminders are off and this device can ask. */
+  offer: {
+    title: "Don't forget to log 🔔",
+    body:
+      "Last thing: turn on meal reminders and you'll get a nudge at 8am, noon and " +
+      "8pm Eastern, so a meal never slips by unlogged.",
+    cta: "Turn on reminders",
+    decline: "Not now",
+  },
+  /** On for the account, but this device hasn't allowed notifications yet. */
+  allowHere: {
+    title: "Get reminders here too 🔔",
+    body:
+      "Meal reminders are on for your account. Allow notifications so this device " +
+      "gets them too.",
+    cta: "Allow notifications",
+    decline: "Not now",
+  },
+  /** Already on and allowed. */
+  on: {
+    title: "Reminders are on ✓",
+    body: "You'll get a nudge at 8am, noon and 8pm Eastern. Turn them off here any time.",
+  },
+  /** The browser said no, now or before. */
+  blocked: {
+    title: "Notifications are blocked",
+    body:
+      "Your browser is blocking notifications for Higgins Helper. Allow them in its " +
+      "settings, then flip this switch to get meal reminders.",
+  },
+  /** iPhone in Safari: no notifications until the app is on the home screen. */
+  installFirst: {
+    title: "Want meal reminders? 🔔",
+    body:
+      "On iPhone, add the app to your home screen first: in Safari, tap Share, then " +
+      "Add to Home Screen. Open it from there and turn reminders on here.",
+  },
+  /** The browser can't show notifications at all. */
+  unsupported: {
+    title: "Meal reminders",
+    body:
+      "This browser can't show notifications. Open Higgins Helper on your phone to " +
+      "get a nudge at 8am, noon and 8pm.",
+  },
+  failed: "Couldn't turn them on. Check your connection and try again.",
+  done: "Done",
 };
 
 export interface TourStep {
@@ -42,6 +89,8 @@ export interface TourStep {
   route?: string;
   /** Skip the step, before opening `route`, unless this `data-tour` element is on screen. */
   requires?: string;
+  /** The meal reminders step: its words and buttons come from REMINDERS. */
+  reminders?: boolean;
   title: string;
   body: string;
 }
@@ -80,16 +129,22 @@ export const TOUR_STEPS: TourStep[] = [
       "screenshot to log it. Ate off campus? Add a custom food or scan a barcode.",
   },
   {
-    target: "nav-profile",
-    route: "/profile",
-    title: "Make it yours",
-    body:
-      "Change your goals, set your own macro targets, turn on meal reminders or " +
-      "switch to light mode.",
-  },
-  {
     target: "header-logo",
     title: "Need a refresher?",
     body: "Tap the Higgins Helper logo at the top of any page to replay this tour.",
+  },
+  {
+    target: "nav-profile",
+    route: "/profile",
+    title: "Make it yours",
+    body: "Change your goals, set your own macro targets or switch to light mode.",
+  },
+  {
+    target: "notifications",
+    route: "/profile",
+    reminders: true,
+    // Title and body come from REMINDERS, depending on what this device allows
+    title: "",
+    body: "",
   },
 ];
