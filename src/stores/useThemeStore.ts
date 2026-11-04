@@ -18,8 +18,15 @@ interface ThemeState {
   applyTheme: () => void;
 }
 
+/** The page background, used for the Android status bar. Keep in step with index.html. */
+const STATUS_BAR: Record<Theme, string> = { dark: "#09090f", light: "#f2f2f9" };
+
 function applyToDom(theme: Theme) {
   document.documentElement.setAttribute("data-theme", theme);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", STATUS_BAR[theme]);
+  // iOS only reads this at launch, so a theme change shows on the next open
+  document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+    ?.setAttribute("content", theme === "light" ? "default" : "black-translucent");
 }
 
 export const useThemeStore = create<ThemeState>()(

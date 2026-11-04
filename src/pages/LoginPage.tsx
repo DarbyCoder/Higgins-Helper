@@ -147,7 +147,8 @@ export default function LoginPage() {
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
-      padding: "1.5rem",
+      // Clear the iPhone status bar and home indicator (viewport-fit=cover)
+      padding: "calc(env(safe-area-inset-top, 0px) + 1.5rem) 1.5rem calc(env(safe-area-inset-bottom, 0px) + 1.5rem)",
       background: "var(--color-bg)",
       position: "relative",
       overflow: "hidden",

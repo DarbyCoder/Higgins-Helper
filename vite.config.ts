@@ -16,7 +16,9 @@ export default defineConfig({
       strategies: "generateSW",
       registerType: "autoUpdate",
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,woff2}"],
+        // iOS fetches its launch screens itself, once, when the app is installed
+        globIgnores: ["splash/**"],
         // Load our custom push/notification-click handlers into the generated SW
         importScripts: ["/sw-handlers.js"],
         runtimeCaching: [
@@ -24,19 +26,6 @@ export default defineConfig({
             urlPattern: /^\/api\/menu/,
             handler: "NetworkFirst",
             options: { cacheName: "api-menu-cache" },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: "StaleWhileRevalidate",
-            options: { cacheName: "google-fonts-cache" },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-webfonts",
-              expiration: { maxEntries: 20, maxAgeSeconds: 31_536_000 },
-            },
           },
         ],
       },

@@ -102,6 +102,8 @@ export default function OnboardingPage() {
     <div style={{
       minHeight: "100dvh", display: "flex", flexDirection: "column",
       background: "var(--color-bg)", position: "relative", overflow: "hidden",
+      // Clear the iPhone status bar and home indicator (viewport-fit=cover)
+      paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)",
     }}>
       <style>{`
         @keyframes slideUpFade {
