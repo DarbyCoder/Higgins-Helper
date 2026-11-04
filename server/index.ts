@@ -11,6 +11,7 @@
 // Load .env FIRST — before any other imports read process.env
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
+import compression from "compression";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -63,6 +64,13 @@ if (!isDev) {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   // In production, server runs from dist/server/index.js, client is in dist/
   const distPath = path.resolve(__dirname, "..");
+
+  // Compresses the app shell (JS, CSS, HTML) as it is sent. It sits down here so
+  // the menu route above, which sends its own pre-compressed bytes, skips it.
+  // Per-request CPU is fine for these: browsers revalidate unchanged files with
+  // a bodyless 304 and the service worker keeps its own copy, so a full download
+  // happens about once per user per deploy.
+  app.use(compression());
 
   app.use(express.static(distPath));
 

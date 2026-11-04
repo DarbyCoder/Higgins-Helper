@@ -10,16 +10,58 @@
  *
  * Cache key: the date string "YYYY-MM-DD".
  * This means yesterday's menu is never confused with today's.
+ *
+ * Entries hold finished response bytes rather than the parsed menu. Render's
+ * free instance has about 0.1 CPU, so the menu is serialized and compressed
+ * once when it is scraped, and every request after that just writes a buffer.
  */
 
-import type { CacheEntry, DailyMenuResponse } from "../types/index.js";
+import { createHash } from "crypto";
+import { promisify } from "util";
+import zlib from "zlib";
+import type { CacheEntry } from "../types/index.js";
+
+const gzip = promisify(zlib.gzip);
+const brotliCompress = promisify(zlib.brotliCompress);
 
 /** Default cache TTL: 1 hour in milliseconds. */
 const DEFAULT_TTL_MS = 60 * 60 * 1000;
 
+/** One JSON body in every encoding we can send. Treat the buffers as read-only. */
+export interface EncodedBody {
+  json: Buffer;
+  gzip: Buffer;
+  brotli: Buffer;
+  /** Weak, so one value covers all three encodings of the same JSON. */
+  etag: string;
+}
+
+/**
+ * Compresses a JSON string for sending. On the menu (1.3 MB) this costs about
+ * 40 ms on a dev PC, on zlib's thread pool rather than the event loop. The
+ * levels are high because this runs once per scrape, not once per request.
+ * Brotli 11 would save another 7% but takes about 35x as long as 9, which
+ * would stall the whole process on a 0.1 CPU instance.
+ */
+export async function encodeJson(body: string): Promise<EncodedBody> {
+  const json = Buffer.from(body);
+  const [gzipped, brotli] = await Promise.all([
+    gzip(json, { level: 9 }),
+    brotliCompress(json, {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 9,
+        [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+        [zlib.constants.BROTLI_PARAM_SIZE_HINT]: json.length,
+      },
+    }),
+  ]);
+  const hash = createHash("sha1").update(json).digest("base64");
+  return { json, gzip: gzipped, brotli, etag: `W/"${hash}"` };
+}
+
 class MenuCache {
   /** Internal store: date string → cache entry */
-  private readonly store = new Map<string, CacheEntry<DailyMenuResponse>>();
+  private readonly store = new Map<string, CacheEntry<EncodedBody>>();
 
   /**
    * Retrieves a cached menu response if it exists AND has not expired.
@@ -27,9 +69,9 @@ class MenuCache {
    * store so getStale() can serve them for the stale-while-revalidate pattern.
    *
    * @param date - "YYYY-MM-DD" cache key
-   * @returns Fresh DailyMenuResponse, or null if missing/expired
+   * @returns Fresh encoded menu, or null if missing/expired
    */
-  get(date: string): DailyMenuResponse | null {
+  get(date: string): EncodedBody | null {
     const entry = this.store.get(date);
     if (!entry) return null;
 
@@ -50,9 +92,9 @@ class MenuCache {
    * instantly from stale data while triggering a background re-scrape.
    *
    * @param date - "YYYY-MM-DD" cache key
-   * @returns Stored DailyMenuResponse regardless of TTL, or null if never fetched
+   * @returns Stored encoded menu regardless of TTL, or null if never fetched
    */
-  getStale(date: string): DailyMenuResponse | null {
+  getStale(date: string): EncodedBody | null {
     const entry = this.store.get(date);
     if (!entry) return null;
     const ageSeconds = Math.round((Date.now() - entry.cachedAt) / 1000);
@@ -64,12 +106,12 @@ class MenuCache {
    * Stores a menu response in the cache.
    *
    * @param date - "YYYY-MM-DD" cache key
-   * @param data - The DailyMenuResponse to cache
+   * @param data - The encoded menu to cache
    * @param ttlMs - Time-to-live in ms (defaults to 1 hour)
    */
   set(
     date: string,
-    data: DailyMenuResponse,
+    data: EncodedBody,
     ttlMs: number = DEFAULT_TTL_MS
   ): void {
     this.store.set(date, {
@@ -79,7 +121,7 @@ class MenuCache {
     });
     console.log(
       `[menuCache] Cached menu for ${date} (TTL: ${ttlMs / 1000 / 60}min, ` +
-        `${data.locations.length} location(s))`
+        `${data.json.length} bytes raw, ${data.gzip.length} gzip, ${data.brotli.length} br)`
     );
   }
 
