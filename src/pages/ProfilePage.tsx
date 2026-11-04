@@ -16,9 +16,9 @@ function resetLocalTestData() {
 
 const DEFAULT_REMINDER_PREFS: MealReminderPrefs = {
   enabled: false,
-  breakfastTime: "08:30",
-  lunchTime: "12:30",
-  dinnerTime: "18:30",
+  breakfastTime: "08:00",
+  lunchTime: "12:00",
+  dinnerTime: "20:00",
 };
 
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
