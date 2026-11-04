@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MenuItem, MealSlot } from "@/types";
 import { useFoodLogStore, useDateStore, useUIStore } from "@/stores";
+import { mealSlotFor } from "@/utils/mains";
 import MacroTiles from "@/components/nutrition/MacroTiles";
 import DietBadges from "@/components/nutrition/DietBadges";
 import { ChevronDownIcon, MinusIcon, PlusIcon } from "@/components/icons";
@@ -185,13 +186,7 @@ export default function NutritionModal({ item, locationName, sourceMealName, onC
     setServings(1);
     setShowLabel(false);
 
-    if (sourceMealName) {
-      const name = sourceMealName.toLowerCase();
-      if (name.includes("breakfast")) setMealSlot("breakfast");
-      else if (name.includes("lunch")) setMealSlot("lunch");
-      else if (name.includes("dinner")) setMealSlot("dinner");
-      else setMealSlot("snack");
-    }
+    if (sourceMealName) setMealSlot(mealSlotFor(sourceMealName));
   }, [item, sourceMealName]);
 
   if (!item) return null;
