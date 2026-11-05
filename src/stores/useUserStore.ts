@@ -12,6 +12,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { guardedStorage } from "./guestStorage";
 import type {
   UserProfile,
   MacroTargets,
@@ -331,7 +332,7 @@ export const useUserStore = create<UserState>()(
 
     {
       name:    "higgins-user-profile",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => guardedStorage), // saves nothing in guest mode
       partialize: (state) => ({
         userProfile:             state.userProfile,
         macroTargets:            state.macroTargets,

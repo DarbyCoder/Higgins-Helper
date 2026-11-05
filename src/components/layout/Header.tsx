@@ -116,7 +116,7 @@ export default function Header() {
   return (
     <header style={{
       // Clear the iPhone status bar, which the app draws under (viewport-fit=cover)
-      padding: "calc(env(safe-area-inset-top, 0px) + 1.1rem) 1rem 0.75rem",
+      padding: "calc(env(safe-area-inset-top, 0px) + var(--guest-banner-h, 0px) + 1.1rem) 1rem 0.75rem",
       maxWidth: 480,
       margin: "0 auto",
       width: "100%",

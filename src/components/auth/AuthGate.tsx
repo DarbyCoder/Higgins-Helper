@@ -8,6 +8,9 @@
  *   • Signed in, confirmed no profile  → OnboardingPage (forced wizard)
  *   • Signed in, has profile           → children (the main app)
  *
+ * In guest mode (LoginPage → Guest) there is no account and nothing is saved:
+ * onboarding, then the app, under a banner saying so.
+ *
  * In local test mode (`npm run dev:local`) sign-in is skipped entirely: no
  * saved profile → OnboardingPage, otherwise the main app. The profile comes
  * from this browser's localStorage only.
@@ -18,6 +21,8 @@ import { useAuth }        from "@/firebase/AuthProvider";
 import { LOCAL_MODE }     from "@/firebase/localMode";
 import { useUserStore }   from "@/stores/useUserStore";
 import { useFoodLogStore } from "@/stores/useFoodLogStore";
+import { useGuestStore }  from "@/stores/guestStorage";
+import GuestBanner        from "./GuestBanner";
 // Only signed-out and brand-new users see these, so everyone else never downloads them
 const LoginPage      = lazy(() => import("@/pages/LoginPage"));
 const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
@@ -68,7 +73,19 @@ function Gate({ children }: AuthGateProps) {
   const logIsSynced   = useFoodLogStore((s) => s.logSync?.uid === user?.uid);
   const hasCachedLog  = useFoodLogStore((s) => Object.keys(s.foodLog).length > 0);
 
-  // ── 0. Local test mode: no sign-in, no Firestore ──────────────────────────
+  const isGuest       = useGuestStore((s) => s.isGuest);
+
+  // ── 0. Guest mode: no account, nothing saved; onboarding, then the app ────
+  if (isGuest) {
+    return (
+      <>
+        <GuestBanner />
+        {hasProfile ? children : <OnboardingPage />}
+      </>
+    );
+  }
+
+  // ── 0b. Local test mode: no sign-in, no Firestore ─────────────────────────
   if (LOCAL_MODE) {
     return hasProfile ? <>{children}</> : <OnboardingPage />;
   }

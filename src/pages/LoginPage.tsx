@@ -3,11 +3,13 @@
  * @description Walkthrough landing page + login form.
  * Shows a 3-tab intro about the app's features before showing the sign-in form.
  * Tabs can be switched with the tab bar, Back/Continue, swiping, or the arrow keys.
+ * The form has three tabs: Sign Up, Log In, and Guest (no account, nothing saved).
  */
 
 import { useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { useAuth } from "@/firebase/AuthProvider";
-import { BowlIcon, TargetIcon, UtensilsIcon } from "@/components/icons";
+import { startGuestMode, LOGIN_MODE_KEY } from "@/firebase/guestMode";
+import { BowlIcon, CheckIcon, TargetIcon, UtensilsIcon } from "@/components/icons";
 
 // Fraction of the slide width a swipe must travel to switch tabs
 const SWIPE_THRESHOLD = 0.15;
@@ -15,12 +17,14 @@ const SWIPE_THRESHOLD = 0.15;
 export default function LoginPage() {
   const { signIn, signUp, signInWithGoogle, error } = useAuth();
 
-  const [step, setStep]                 = useState(0);
+  // Leaving guest mode reloads onto a chosen tab, past the walkthrough
+  const [cameFrom]                      = useState(takeLoginMode);
+  const [step, setStep]                 = useState(cameFrom ? Infinity : 0); // past the last slide = the form
   const [drag, setDrag]                 = useState(0); // swipe offset as a fraction of the slide width
   const [isDragging, setIsDragging]     = useState(false);
   const dragStart                       = useRef<{ x: number; width: number } | null>(null);
   const tabRefs                         = useRef<(HTMLButtonElement | null)[]>([]);
-  const [mode, setMode]                 = useState<"signin" | "signup">("signup");
+  const [mode, setMode]                 = useState<"signin" | "signup" | "guest">(cameFrom ?? "signup");
   const [name, setName]                 = useState("");
   const [email, setEmail]               = useState("");
   const [password, setPassword]         = useState("");
@@ -346,7 +350,7 @@ export default function LoginPage() {
             padding: "3px", marginBottom: "1.5rem",
             border: "1px solid var(--color-border)",
           }}>
-            {(["signin", "signup"] as const).map((m) => (
+            {(["signup", "signin", "guest"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => { setMode(m); setLocalError(null); }}
@@ -360,11 +364,12 @@ export default function LoginPage() {
                   color: mode === m ? "#fff" : "var(--color-text-2)",
                 }}
               >
-                {m === "signin" ? "Sign In" : "Sign Up"}
+                {m === "signin" ? "Log In" : m === "signup" ? "Sign Up" : "Guest"}
               </button>
             ))}
           </div>
 
+          {mode === "guest" ? <GuestPanel /> : (<>
           {/* Form */}
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             {mode === "signup" && (
@@ -435,7 +440,7 @@ export default function LoginPage() {
             >
               {isSubmitting
                 ? "Please wait…"
-                : mode === "signin" ? "Sign In" : "Create Account"}
+                : mode === "signin" ? "Log In" : "Create Account"}
             </button>
           </form>
 
@@ -476,6 +481,7 @@ export default function LoginPage() {
             </svg>
             Continue with Google
           </button>
+          </>)}
         </div>
       )}
 
@@ -516,6 +522,51 @@ export default function LoginPage() {
         </div>
       )}
 
+    </div>
+  );
+}
+
+/** The tab to open on after leaving guest mode, read once. */
+function takeLoginMode(): "signin" | "signup" | null {
+  try {
+    const m = sessionStorage.getItem(LOGIN_MODE_KEY);
+    sessionStorage.removeItem(LOGIN_MODE_KEY);
+    return m === "signin" || m === "signup" ? m : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Guest tab: what guest mode is, and the way in. */
+function GuestPanel() {
+  const points = [
+    "Browse today's menus and log meals, just like with an account",
+    "Nothing is saved. Reloading or closing the app clears it",
+    "Make an account any time from the banner at the top",
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div>
+        <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 750, color: "var(--color-text-1)" }}>Look around first</h2>
+        <p style={{ margin: "0.3rem 0 0", fontSize: "0.82rem", color: "var(--color-text-2)", lineHeight: 1.5 }}>
+          Try all of Higgins Helper without an account.
+        </p>
+      </div>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+        {points.map((t) => (
+          <li key={t} style={{ display: "flex", gap: "0.6rem", fontSize: "0.82rem", color: "var(--color-text-2)", lineHeight: 1.45 }}>
+            <CheckIcon size={16} strokeWidth={2.4} style={{ color: "var(--color-primary-light)", flexShrink: 0, marginTop: 1 }} />
+            {t}
+          </li>
+        ))}
+      </ul>
+      <button
+        className="btn-primary"
+        onClick={startGuestMode}
+        style={{ width: "100%", justifyContent: "center", padding: "0.8rem", fontSize: "0.9rem", marginTop: "0.25rem" }}
+      >
+        Continue as guest
+      </button>
     </div>
   );
 }
