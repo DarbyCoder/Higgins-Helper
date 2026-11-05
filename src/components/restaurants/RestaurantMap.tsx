@@ -70,6 +70,34 @@ function FlyToFocus({ focus, fit }: { focus: Focus; fit: L.FitBoundsOptions }) {
   return null;
 }
 
+/**
+ * Leaflet measures its box once, when it starts. WorcesterView sizes the map
+ * to the screen just after, so without this the map keeps its first size:
+ * the wrong zoom, and grey where no tiles were loaded. Re-measures and re-fits
+ * the area whenever the box changes size.
+ */
+function FollowSize({ focus, fit }: { focus: Focus; fit: L.FitBoundsOptions }) {
+  const map = useMap();
+  const latest = useRef({ focus, fit });
+  latest.current = { focus, fit };
+
+  useEffect(() => {
+    const el = map.getContainer();
+    let last = { w: el.clientWidth, h: el.clientHeight };
+    const ro = new ResizeObserver(() => {
+      const now = { w: el.clientWidth, h: el.clientHeight };
+      if (now.w === last.w && now.h === last.h) return;
+      last = now;
+      map.invalidateSize({ animate: false });
+      map.fitBounds(FOCUS_BOUNDS[latest.current.focus], latest.current.fit);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [map]);
+
+  return null;
+}
+
 export default function RestaurantMap({ restaurants, openSlugs, onSelect, focus, insetTop, insetBottom }: Props) {
   // Extra room on top for the pin bodies (they sit above their point)
   const fit: L.FitBoundsOptions = { paddingTopLeft: [16, insetTop + 34], paddingBottomRight: [16, insetBottom + 12], maxZoom: 17 };
@@ -92,6 +120,7 @@ export default function RestaurantMap({ restaurants, openSlugs, onSelect, focus,
             maxZoom={19}
           />
           <FlyToFocus focus={focus} fit={fit} />
+          <FollowSize focus={focus} fit={fit} />
 
           <Marker
             position={[CLARK_CENTER.lat, CLARK_CENTER.lng]}
