@@ -10,6 +10,8 @@ import { useState, type ComponentType, type ReactNode } from "react";
 import { useUserStore, useThemeStore, useUIStore, useFoodLogStore, calculateMacroTargets } from "@/stores";
 import { useAuth } from "@/firebase/AuthProvider";
 import { LOCAL_MODE } from "@/firebase/localMode";
+import { useGuestStore } from "@/stores/guestStorage";
+import { leaveGuestMode } from "@/firebase/guestMode";
 import { useInstallPrompt, isIOS } from "@/hooks/useInstallPrompt";
 import { useMealReminderSwitch } from "@/hooks/useMealReminderSwitch";
 import Sheet from "@/components/ui/Sheet";
@@ -63,6 +65,7 @@ export default function ProfilePage() {
   const { theme, toggleTheme } = useThemeStore();
   const { user, signOut } = useAuth();
   const openTour = useUIStore((s) => s.openTour);
+  const isGuest  = useGuestStore((s) => s.isGuest);
   const { isInstallable, isInstalled, promptInstall } = useInstallPrompt();
   const [sheet, setSheet] = useState<SheetName>(null);
 
@@ -116,6 +119,16 @@ export default function ProfilePage() {
 
       {/* The intro tour's last step spotlights this group */}
       <Group title="Notifications" tour="notifications">
+        {isGuest ? (
+          // Reminders are pushed from the server to an account's devices
+          <Row
+            Icon={BellIcon}
+            label="Meal reminders"
+            detail="Needs an account, so reminders can reach you with the app closed"
+            value="Sign up"
+            onClick={() => leaveGuestMode("signup")}
+          />
+        ) : (<>
         <Row
           Icon={BellIcon}
           label="Meal reminders"
@@ -142,6 +155,7 @@ export default function ProfilePage() {
         {reminders.enabled && permission === "default" && (
           <Row Icon={CheckIcon} label="Allow notifications on this device" accent onClick={handleAllowOnThisDevice} />
         )}
+        </>)}
       </Group>
 
       <Group title="App">
@@ -161,21 +175,27 @@ export default function ProfilePage() {
       </Group>
 
       <Group title="Account">
-        <Row
-          Icon={UserIcon}
-          label={LOCAL_MODE ? "Local test mode" : user?.displayName ?? p.name ?? "Signed in"}
-          detail={LOCAL_MODE ? "Saved in this browser only" : user?.email ?? undefined}
-        />
-        <Row
-          Icon={LogOutIcon}
-          label={LOCAL_MODE ? "Reset test data" : "Sign out"}
-          danger
-          onClick={LOCAL_MODE ? resetLocalTestData : signOut}
-        />
+        {isGuest ? (<>
+          <Row Icon={UserIcon} label="Guest mode" detail="Nothing is saved. Reloading or closing the app clears it" />
+          <Row Icon={UserIcon} label="Create an account" accent onClick={() => leaveGuestMode("signup")} />
+          <Row Icon={LogOutIcon} label="Log in instead" onClick={() => leaveGuestMode("signin")} />
+        </>) : (<>
+          <Row
+            Icon={UserIcon}
+            label={LOCAL_MODE ? "Local test mode" : user?.displayName ?? p.name ?? "Signed in"}
+            detail={LOCAL_MODE ? "Saved in this browser only" : user?.email ?? undefined}
+          />
+          <Row
+            Icon={LogOutIcon}
+            label={LOCAL_MODE ? "Reset test data" : "Sign out"}
+            danger
+            onClick={LOCAL_MODE ? resetLocalTestData : signOut}
+          />
+        </>)}
       </Group>
 
       <p style={{ textAlign: "center", fontSize: "0.7rem", color: "var(--color-text-3)", margin: "0.5rem 0 0" }}>
-        Higgins Helper v1.0.5 · Clark University · {LOCAL_MODE ? "Local test mode" : "Synced to your account"}
+        Higgins Helper v1.0.5 · Clark University · {isGuest ? "Guest mode, nothing saved" : LOCAL_MODE ? "Local test mode" : "Synced to your account"}
       </p>
 
       {sheet === "personal" && <PersonalSheet profile={p} onClose={() => setSheet(null)} />}

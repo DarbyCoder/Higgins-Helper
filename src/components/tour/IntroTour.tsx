@@ -29,6 +29,7 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUIStore, useUserStore } from "@/stores";
 import { LOCAL_MODE } from "@/firebase/localMode";
+import { useGuestStore } from "@/stores/guestStorage";
 import { useMealReminderSwitch } from "@/hooks/useMealReminderSwitch";
 import { isIOS } from "@/hooks/useInstallPrompt";
 import { INTRO_VERSION, WELCOME, REMINDERS, TOUR_STEPS } from "./tourSteps";
@@ -98,6 +99,7 @@ function TourOverlay() {
   /** The old page is sliding out: its highlight fades with it. */
   const [pageLeaving, setPageLeaving] = useState(false);
   const reminders       = useMealReminderSwitch();
+  const isGuest         = useGuestStore((s) => s.isGuest);
   const [reminderFailed, setReminderFailed] = useState(false);
 
   const direction  = useRef<1 | -1>(1);
@@ -117,14 +119,16 @@ function TourOverlay() {
   const overlayRef = useRef<HTMLDivElement>(null);
   const ending     = useRef(false);
 
-  const step   = pos >= 1 ? TOUR_STEPS[pos - 1] ?? null : null;
-  const isLast = pos === TOUR_STEPS.length;
+  // Guests skip the reminders step: reminders need an account to send from
+  const steps  = isGuest ? TOUR_STEPS.filter((s) => !s.reminders) : TOUR_STEPS;
+  const step   = pos >= 1 ? steps[pos - 1] ?? null : null;
+  const isLast = pos === steps.length;
   const ready  = !step || (spot?.pos === pos && spot.settled);
   const motion = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function go(delta: 1 | -1) {
     direction.current = delta;
-    setPos((p) => Math.min(Math.max(p + delta, 0), TOUR_STEPS.length));
+    setPos((p) => Math.min(Math.max(p + delta, 0), steps.length));
   }
 
   function finish(route: string) {
@@ -313,7 +317,7 @@ function TourOverlay() {
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") skip();
-      else if (e.key === "ArrowRight" && pos < TOUR_STEPS.length) go(1);
+      else if (e.key === "ArrowRight" && pos < steps.length) go(1);
       else if (e.key === "ArrowLeft" && pos > 0) go(-1);
     };
     window.addEventListener("keydown", onKey);
@@ -396,7 +400,7 @@ function TourOverlay() {
             ) : <span />}
             <div style={{ display: "flex", alignItems: "center", gap: "0.15rem" }}>
               <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--color-text-3)", padding: isLast ? "0.25rem 0" : undefined }}>
-                {pos} of {TOUR_STEPS.length}
+                {pos} of {steps.length}
               </span>
               {/* The last step's own buttons end the tour */}
               {!isLast && <button onClick={skip} style={TEXT_BUTTON}>Skip</button>}

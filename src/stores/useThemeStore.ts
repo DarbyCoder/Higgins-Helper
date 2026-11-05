@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { guardedStorage } from "./guestStorage";
 
 export type Theme = "dark" | "light";
 
@@ -50,7 +51,7 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: "higgins-theme",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => guardedStorage), // saves nothing in guest mode
     }
   )
 );

@@ -23,6 +23,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { guardedStorage } from "./guestStorage";
 import { v4 as uuidv4 } from "uuid";
 import type {
   DailyFoodLog,
@@ -369,7 +370,7 @@ export const useFoodLogStore = create<FoodLogState>()(
 
     {
       name:    "higgins-food-log",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => guardedStorage), // saves nothing in guest mode
       partialize: (state) => ({ foodLog: state.foodLog, logSync: state.logSync }),
     }
   )
