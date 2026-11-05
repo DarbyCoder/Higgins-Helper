@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MenuItem, MealSlot } from "@/types";
 import { useFoodLogStore, useDateStore, useUIStore } from "@/stores";
-import { mealSlotFor } from "@/utils/mains";
+import { mealSlotFor } from "@/utils/menuHelpers";
 import MacroTiles from "@/components/nutrition/MacroTiles";
 import DietBadges from "@/components/nutrition/DietBadges";
 import { ChevronDownIcon, MinusIcon, PlusIcon } from "@/components/icons";
