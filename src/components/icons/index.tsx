@@ -248,3 +248,11 @@ export const ActivityIcon = (p: IconProps) => (
     <path d="M3 12h4l3-8 4 16 3-8h4" />
   </Icon>
 );
+
+export const SlidersIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 8h9M17 8h3M4 16h3M11 16h9" />
+    <circle cx="15" cy="8" r="2" />
+    <circle cx="9" cy="16" r="2" />
+  </Icon>
+);

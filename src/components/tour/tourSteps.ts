@@ -115,9 +115,9 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/menu",
     title: "What's being served",
     body:
-      "The biggest mains at Higgins and The Bistro that fit what you have left. " +
-      "Tap Higgins again to switch meals, filter by diet, or tap Search for any " +
-      "dish. The Clark button up top switches to Worcester restaurants.",
+      "The Bistro, Higgins and restaurants around Worcester, with full nutrition " +
+      "for every dish. Switch meals, group dishes by station or food group, and " +
+      "use Search and Filters up top.",
   },
   {
     target: "log-actions",

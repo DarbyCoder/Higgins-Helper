@@ -36,7 +36,10 @@ export interface ToastAction {
 export type MenuArea = "clark" | "worcester";
 
 /** A Menu tab sheet opened from the header. */
-export type MenuSheet = "search" | "date" | null;
+export type MenuSheet = "search" | "date" | "filters" | null;
+
+/** How the Menu lists a meal's dishes. */
+export type MenuGroupBy = "station" | "food";
 
 // ─── Store Shape ──────────────────────────────────────────────────────────────
 
@@ -59,7 +62,10 @@ interface UIState {
    */
   activeDietaryFilters: string[];
 
-  /** Menu: only dishes within the calories left today. On by default. */
+  /** Menu: group dishes by station or by food group. */
+  menuGroupBy: MenuGroupBy;
+
+  /** Menu: only dishes within the calories left today. */
   fitsBudget: boolean;
 
   /** Menu: only dishes with at least HIGH_PROTEIN_G of protein. */
@@ -81,6 +87,7 @@ interface UIState {
   setActiveMealPeriod: (meal: string | null) => void;
   setSearchQuery: (query: string) => void;
   setFitsBudget: (on: boolean) => void;
+  setMenuGroupBy: (g: MenuGroupBy) => void;
   setHighProtein: (on: boolean) => void;
   setMenuSheet: (sheet: MenuSheet) => void;
 
@@ -130,7 +137,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   activeMealPeriod: null,
   searchQuery: "",
   activeDietaryFilters: [],
-  fitsBudget: true,
+  menuGroupBy: "station",
+  fitsBudget: false,
   highProtein: false,
   menuSheet: null,
   toasts: [],
@@ -141,6 +149,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   setActiveMealPeriod: (meal) => set({ activeMealPeriod: meal }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   setFitsBudget: (on) => set({ fitsBudget: on }),
+  setMenuGroupBy: (g) => set({ menuGroupBy: g }),
   setHighProtein: (on) => set({ highProtein: on }),
   setMenuSheet: (sheet) => set({ menuSheet: sheet }),
 
@@ -184,7 +193,8 @@ export const useUIStore = create<UIState>((set, get) => ({
       searchQuery: "",
       activeDietaryFilters: [],
       dietFiltersFrom: null,
-      fitsBudget: true,
+      menuGroupBy: "station",
+      fitsBudget: false,
       highProtein: false,
       menuSheet: null,
     }),

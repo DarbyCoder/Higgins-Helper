@@ -1,26 +1,27 @@
 /**
  * @file src/components/menu/MenuSearchSheet.tsx
- * @description Search every dish served that day at Higgins and The Bistro,
- * toppings and sides included, for anything the mains list leaves out. The
- * meal being browsed comes first. Diet and High protein chips apply here too.
+ * @description Search every dish served that day, toppings and sides
+ * included: at Higgins and The Bistro, or on the Worcester tab, at the
+ * restaurants near campus. The meal being browsed comes first. Diet and High
+ * protein chips apply here too.
  */
 import { useEffect, useMemo, useRef } from "react";
 import type { DiningLocation, MenuItem } from "@/types";
 import { useUIStore } from "@/stores";
 import Sheet from "@/components/ui/Sheet";
-import DishRow from "./DishRow";
+import MenuRow from "./MenuRow";
 import MenuFilters from "./MenuFilters";
-import { shortName } from "./LocationSwitch";
 import { SearchIcon, XIcon } from "@/components/icons";
 import { filterByDietary } from "@/utils/dietary";
-import { HIGH_PROTEIN_G, mealSlotFor, num } from "@/utils/mains";
+import { HIGH_PROTEIN_G, mealSlotFor, num, stationLabel } from "@/utils/menuHelpers";
 
 interface Props {
   locations: DiningLocation[];
   /** The location and meal being browsed, listed first. */
   slug: string;
   meal: string;
-  remaining: number;
+  /** "Higgins and The Bistro", or "restaurants near campus". */
+  scope: string;
   onSelect: (item: MenuItem, locationName: string, mealName: string) => void;
   onClose: () => void;
 }
@@ -35,7 +36,10 @@ interface Group {
 
 const MAX_RESULTS = 80;
 
-export default function MenuSearchSheet({ locations, slug, meal, remaining, onSelect, onClose }: Props) {
+/** "The Table at Higgins" → "Higgins" */
+const shortName = (name: string) => name.replace(/^the table at /i, "").replace(/^the /i, "");
+
+export default function MenuSearchSheet({ locations, slug, meal, scope, onSelect, onClose }: Props) {
   const { searchQuery, setSearchQuery, activeDietaryFilters, highProtein } = useUIStore();
   const q = searchQuery.trim().toLowerCase();
   const input = useRef<HTMLInputElement>(null);
@@ -58,8 +62,10 @@ export default function MenuSearchSheet({ locations, slug, meal, remaining, onSe
       for (const m of l.meals) {
         const seen = new Set<string>();
         const items: Group["items"] = [];
+        // A search for the place itself lists everything it serves
+        const placeHit = l.name.toLowerCase().includes(q);
         for (const s of m.stations ?? []) {
-          const hit = (s.name ?? "").toLowerCase().includes(q);
+          const hit = placeHit || (s.name ?? "").toLowerCase().includes(q);
           let found = (s.items ?? []).filter((i) => hit || (i.name ?? "").toLowerCase().includes(q));
           found = filterByDietary(found, activeDietaryFilters);
           if (highProtein) found = found.filter((i) => num(i.protein) >= HIGH_PROTEIN_G);
@@ -73,7 +79,7 @@ export default function MenuSearchSheet({ locations, slug, meal, remaining, onSe
         if (items.length) {
           all.push({
             key: `${l.slug}|${m.name}`, rank: order(l, m.name),
-            label: `${shortName(l.name).replace(/^the /i, "")} · ${m.name}`,
+            label: l.meals.length > 1 ? `${shortName(l.name)} · ${m.name}` : shortName(l.name),
             locationName: l.name, mealName: m.name, items,
           });
         }
@@ -127,7 +133,7 @@ export default function MenuSearchSheet({ locations, slug, meal, remaining, onSe
 
         {!q ? (
           <p style={{ margin: "1.5rem 0", textAlign: "center", fontSize: "0.85rem", color: "var(--color-text-3)", lineHeight: 1.5 }}>
-            Every dish at Higgins and The Bistro today,<br />toppings and sides included.
+            Every dish at {scope} today,<br />toppings and sides included.
           </p>
         ) : count === 0 ? (
           <p style={{ margin: "1.5rem 0", textAlign: "center", fontSize: "0.85rem", color: "var(--color-text-3)" }}>
@@ -138,7 +144,9 @@ export default function MenuSearchSheet({ locations, slug, meal, remaining, onSe
             <section key={g.key} style={{ marginBottom: "0.9rem" }}>
               <div className="section-title" style={{ margin: "0.4rem 0 0" }}>{g.label}</div>
               {g.items.map(({ item, station }) => (
-                <DishRow key={item.id} item={item} where={station} remaining={remaining} onSelect={(i) => onSelect(i, g.locationName, g.mealName)} />
+                <div key={item.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
+                  <MenuRow item={item} tag={station ? { label: stationLabel(station) } : undefined} onSelect={(i) => onSelect(i, g.locationName, g.mealName)} />
+                </div>
               ))}
             </section>
           ))

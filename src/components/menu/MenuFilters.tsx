@@ -1,17 +1,11 @@
 /**
  * @file src/components/menu/MenuFilters.tsx
- * @description The Menu's filter chips: Fits budget, High protein, and the
- * diets. They narrow the mains list and search alike.
+ * @description A row of filter chips (Fits budget, High protein, the diets)
+ * for the search sheet, so filters can change without leaving it. The same
+ * filters as the header's Filters sheet.
  */
 import { useUIStore } from "@/stores";
-
-export const DIET_CHIPS = [
-  { icon: "vegan",               label: "Vegan" },
-  { icon: "vegetarian",          label: "Vegetarian" },
-  { icon: "made_without_gluten", label: "Gluten-free" },
-  { icon: "halal",               label: "Halal" },
-  { icon: "kosher",              label: "Kosher" },
-];
+import { DIET_CHIPS } from "./FiltersSheet";
 
 export default function MenuFilters({ showBudget = true }: { showBudget?: boolean }) {
   const { fitsBudget, setFitsBudget, highProtein, setHighProtein, activeDietaryFilters, toggleDietaryFilter } = useUIStore();

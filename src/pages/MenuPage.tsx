@@ -1,38 +1,41 @@
 /**
  * @file src/pages/MenuPage.tsx
- * @description Browse food for the selected day.
+ * @description Browse food for the selected day, in three tabs:
  *
- * Clark: what's left of the day's budget, a Higgins | Bistro switch showing
- * the meal being browsed, filter chips, and that meal's main dishes, biggest
- * first. Everything else (toppings, sides, desserts) is in the search sheet
- * the header's Search opens. Worcester: nearby restaurants (map + list).
+ *   Bistro / Higgins: the meal being browsed (with its hours and a picker for
+ *   the day's other meals), a Food group | Station switch, and that meal's
+ *   dishes in collapsible sections.
+ *   Worcester: restaurants near campus on a map, with a list that drags up.
  *
- * Tapping a dish on either side opens the NutritionModal to log it.
+ * The header holds the day, Search (every dish) and Filters (Fits budget,
+ * High protein, diets). Tapping a dish opens the NutritionModal to log it.
  */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useDateStore, useFoodLogStore, useMenuStore, useUIStore, useUserStore, toLocalDateString } from "@/stores";
-import { profileDietFilters } from "@/utils/dietary";
+import { filterByDietary, profileDietFilters } from "@/utils/dietary";
 import { findActiveMealPeriod, findNextMealPeriod } from "@/utils/time";
-import { mealSlotFor, pickMains } from "@/utils/mains";
-import type { DiningLocation, MenuItem } from "@/types";
+import { HIGH_PROTEIN_G, num, stationLabel } from "@/utils/menuHelpers";
+import { FOOD_GROUPS, FOOD_GROUP_BY_ID, foodGroupOf, type FoodGroup } from "@/utils/foodGroups";
+import { restaurantToLocation } from "@/utils/restaurants";
+import { WORCESTER_RESTAURANTS } from "@/data/worcesterRestaurants";
+import type { DiningLocation, MealPeriod, MenuItem } from "@/types";
 
-import BudgetCard from "@/components/menu/BudgetCard";
-import LocationSwitch, { shortName } from "@/components/menu/LocationSwitch";
-import MenuFilters, { DIET_CHIPS } from "@/components/menu/MenuFilters";
-import DishRow from "@/components/menu/DishRow";
-import MenuSearch from "@/components/menu/MenuSearch";
+import MenuTabs from "@/components/menu/MenuTabs";
+import MealBar from "@/components/menu/MealBar";
+import GroupBySwitch from "@/components/menu/GroupBySwitch";
+import DishSections, { type DishSection } from "@/components/menu/DishSections";
+import FiltersSheet from "@/components/menu/FiltersSheet";
 import MenuSearchSheet from "@/components/menu/MenuSearchSheet";
 import DatePicker from "@/components/menu/DatePicker";
 import NutritionModal from "@/components/menu/NutritionModal";
 import Sheet from "@/components/ui/Sheet";
 import { LocationCardErrorBoundary } from "@/components/menu/LocationCardErrorBoundary";
-import { AlertIcon, SearchIcon, UtensilsIcon } from "@/components/icons";
-import { formatWhole } from "@/utils/format";
+import { AlertIcon, UtensilsIcon } from "@/components/icons";
 
-// Leaflet and the restaurant data only load once the Worcester side is opened
+// Leaflet and the restaurant data only load once the Worcester tab is opened
 const WorcesterView = lazy(() => import("@/components/restaurants/WorcesterView"));
 
-const SHORT_DAY = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" });
+const WORCESTER = "worcester";
 
 /** The meal being served now, else the next one, else the day's last (late at night). */
 function defaultMeal(location: DiningLocation | undefined): string {
@@ -40,20 +43,22 @@ function defaultMeal(location: DiningLocation | undefined): string {
   return (findActiveMealPeriod(meals) ?? findNextMealPeriod(meals) ?? meals[meals.length - 1])?.name ?? "";
 }
 
+/** Tab name: "The Table at Higgins" → "Higgins", "The Bistro" → "Bistro". */
+const tabName = (name: string) => name.replace(/^the table at /i, "").replace(/^the /i, "");
+
 export default function MenuPage() {
   const { selectedDate } = useDateStore();
   const { menuData, isLoading, error, fetchMenu } = useMenuStore();
   const ui = useUIStore();
-  const { menuArea, applyProfileDiets, activeDietaryFilters, highProtein, fitsBudget, setFitsBudget, menuSheet, setMenuSheet } = ui;
+  const { menuArea, activeDietaryFilters, highProtein, fitsBudget, menuGroupBy, menuSheet, setMenuSheet } = ui;
   const profileDiets = useUserStore((s) => s.userProfile?.dietaryRestrictions);
   const targets = useUserStore((s) => s.macroTargets);
-  const { getDailyTotals, getDailyEntries } = useFoodLogStore();
-  const totals  = getDailyTotals(selectedDate);
-  const entries = getDailyEntries(selectedDate);
+  const eaten = useFoodLogStore((s) => s.getDailyTotals(selectedDate).calories);
+  const remaining = targets.calories - eaten;
 
   // Start filtered to the diets saved on the profile (vegan, gluten-free…).
-  // Only when those change, so chips changed by hand stay as they are.
-  useEffect(() => { applyProfileDiets(profileDietFilters(profileDiets)); }, [profileDiets, applyProfileDiets]);
+  // Only when those change, so filters changed by hand stay as they are.
+  useEffect(() => { ui.applyProfileDiets(profileDietFilters(profileDiets)); }, [profileDiets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch the menu whenever the day changes, and go back to that day's current meal
   useEffect(() => { fetchMenu(selectedDate); }, [selectedDate, fetchMenu]);
@@ -70,89 +75,74 @@ export default function MenuPage() {
     setSelectedMeal(mealName ?? "");
   }
 
-  // ── What's being browsed ──
-  const locations = menuData?.locations ?? [];
-  const location  = locations.find((l) => l.slug === ui.activeLocationSlug) ?? locations[0];
-  const mealName  = location?.meals.some((m) => m.name === ui.activeMealPeriod) ? ui.activeMealPeriod! : defaultMeal(location);
-  const meal      = location?.meals.find((m) => m.name === mealName);
+  // ── Tabs: the Bistro first, then Higgins, then any other hall, then Worcester ──
+  const locations = useMemo(() => {
+    const ls = [...(menuData?.locations ?? [])];
+    const rank = (l: DiningLocation) => (/bistro/i.test(l.name) ? 0 : /higgins/i.test(l.name) ? 1 : 2);
+    return ls.sort((a, b) => rank(a) - rank(b));
+  }, [menuData]);
+  const location = locations.find((l) => l.slug === ui.activeLocationSlug)
+    ?? locations.find((l) => /higgins/i.test(l.name)) ?? locations[0];
+  const tab = menuArea === "worcester" ? WORCESTER : location?.slug ?? "";
+  const tabs = [...locations.map((l) => ({ id: l.slug, label: tabName(l.name) })), { id: WORCESTER, label: "Worcester" }];
 
-  const isToday   = selectedDate === toLocalDateString();
-  const dayLabel  = isToday ? "today" : `on ${SHORT_DAY.format(new Date(`${selectedDate}T12:00:00`))}`;
-  const remaining = targets.calories - totals.calories;
-
-  const mains = useMemo(
-    () => pickMains(meal, { diets: activeDietaryFilters, highProtein, maxCalories: fitsBudget ? Math.max(0, remaining) : null }),
-    [meal, activeDietaryFilters, highProtein, fitsBudget, remaining],
-  );
-  // For the empty state: would anything show without the budget?
-  const mainsAnyBudget = useMemo(
-    () => (mains.length || !fitsBudget ? mains : pickMains(meal, { diets: activeDietaryFilters, highProtein, maxCalories: null })),
-    [mains, fitsBudget, meal, activeDietaryFilters, highProtein],
-  );
-
-  const placeName = location ? shortName(location.name) : "";
-  const other     = locations.find((l) => l.slug !== location?.slug);
-
-  function selectLocation(slug: string) {
-    ui.setActiveLocation(slug);
-    ui.setActiveMealPeriod(null);
+  function selectTab(id: string) {
+    if (id === WORCESTER) return ui.setMenuArea("worcester");
+    ui.setMenuArea("clark");
+    if (id !== location?.slug) {
+      ui.setActiveLocation(id);
+      ui.setActiveMealPeriod(null);
+    }
   }
 
-  function closeSearch() {
-    setMenuSheet(null);
-    ui.setSearchQuery(""); // the Worcester side reads the same query
+  const mealName = location?.meals.some((m) => m.name === ui.activeMealPeriod) ? ui.activeMealPeriod! : defaultMeal(location);
+  const meal = location?.meals.find((m) => m.name === mealName);
+  const isToday = selectedDate === toLocalDateString();
+
+  const filtersOn = activeDietaryFilters.length > 0 || highProtein || fitsBudget;
+  const sections = useMemo(
+    () => (meal ? buildSections(meal, menuGroupBy, { diets: activeDietaryFilters, highProtein, maxCalories: fitsBudget ? Math.max(0, remaining) : null }) : []),
+    [meal, menuGroupBy, activeDietaryFilters, highProtein, fitsBudget, remaining],
+  );
+
+  function clearFilters() {
+    ui.clearDietaryFilters();
+    ui.setHighProtein(false);
+    ui.setFitsBudget(false);
   }
+
+  // Worcester's search covers the restaurants; the halls' covers both halls
+  const searchLocations = useMemo(
+    () => (menuArea === "worcester" ? WORCESTER_RESTAURANTS.map((r) => restaurantToLocation(r, selectedDate)) : locations),
+    [menuArea, locations, selectedDate],
+  );
 
   return (
-    <div className="page">
+    <div className="page" style={menuArea === "worcester" ? { paddingBottom: 0 } : undefined}>
+      <div data-tour="menu-controls" style={{ marginBottom: menuArea === "worcester" ? 0 : "1rem" }}>
+        {isLoading && !menuData ? (
+          <div className="skeleton" style={{ height: 46, borderRadius: "var(--radius-md)" }} />
+        ) : (
+          <MenuTabs tabs={tabs} value={tab} onChange={selectTab} />
+        )}
+      </div>
+
       {menuArea === "worcester" ? (
-        <>
-          <div data-tour="menu-controls" style={{ marginBottom: "1rem" }}>
-            <MenuSearch />
-          </div>
-          <Suspense fallback={<div className="skeleton" style={{ height: 360, borderRadius: "var(--radius-lg)" }} />}>
-            <WorcesterView onSelectItem={handleSelectItem} />
-          </Suspense>
-        </>
+        <Suspense fallback={<div className="skeleton" style={{ height: 420, borderRadius: "var(--radius-lg)" }} />}>
+          <WorcesterView onSelectItem={handleSelectItem} />
+        </Suspense>
       ) : (
         <>
-          <BudgetCard
-            totals={totals}
-            targets={targets}
-            entries={entries}
-            slot={meal ? mealSlotFor(meal.name) : null}
-            dayLabel={dayLabel}
-          />
-
-          <div data-tour="menu-controls" style={{ display: "flex", flexDirection: "column", gap: "0.85rem", margin: "0.9rem 0 0.4rem" }}>
-            {isLoading ? (
-              <div className="skeleton" style={{ height: 50, borderRadius: "var(--radius-full)" }} />
-            ) : locations.length > 0 && location && (
-              <LocationSwitch
-                locations={locations}
-                slug={location.slug}
-                meal={mealName}
-                isToday={isToday}
-                onSelect={selectLocation}
-                onMeal={(m) => ui.setActiveMealPeriod(m)}
-              />
-            )}
-            <MenuFilters />
-          </div>
-
-          {isLoading && <MainsSkeleton />}
+          {isLoading && <MenuSkeleton />}
 
           {error && !isLoading && (
             <div style={{
-              padding: "1.25rem", marginTop: "0.75rem", borderRadius: "var(--radius-lg)",
-              background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
-              textAlign: "center",
+              padding: "1.25rem", borderRadius: "var(--radius-lg)",
+              background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", textAlign: "center",
             }}>
               <AlertIcon size={26} style={{ color: "#f87171", display: "block", margin: "0 auto 0.5rem" }} />
               <p style={{ margin: 0, fontSize: "0.85rem", color: "#f87171", fontWeight: 600 }}>Couldn't load the menu</p>
-              <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", color: "var(--color-text-3)" }}>
-                Check your connection, then try again.
-              </p>
+              <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", color: "var(--color-text-3)" }}>Check your connection, then try again.</p>
               <button className="btn-ghost" onClick={() => fetchMenu(selectedDate)} style={{ marginTop: "0.75rem" }}>Retry</button>
             </div>
           )}
@@ -161,83 +151,44 @@ export default function MenuPage() {
             <Empty title="No dining service this day" body="Clark dining may be closed for a break or holiday." />
           )}
 
-          {!isLoading && !error && location && (
-            <LocationCardErrorBoundary key={`${location.slug}|${mealName}`} locationName={location.name}>
-              {!meal ? (
-                <Empty title={`${placeName} isn't serving ${dayLabel}`} body={other ? `Try ${shortName(other.name)}, or another day.` : "Try another day."} />
+          {!isLoading && !error && location && !meal && (
+            <Empty title={`${tabName(location.name)} isn't serving this day`} body="Try another tab, or another day." />
+          )}
+
+          {!isLoading && !error && location && meal && (
+            <LocationCardErrorBoundary key={`${location.slug}|${meal.name}`} locationName={location.name}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "1rem" }}>
+                <MealBar location={location} meal={meal} isToday={isToday} onMeal={(m) => ui.setActiveMealPeriod(m)} />
+                <GroupBySwitch />
+              </div>
+
+              {sections.length > 0 ? (
+                <DishSections key={`${location.slug}|${meal.name}|${menuGroupBy}`} sections={sections} onSelect={(i) => handleSelectItem(i, location.name, meal.name)} />
               ) : (
-                <>
-                  <div style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "baseline",
-                    margin: "1.1rem 0 0", paddingBottom: "0.6rem", borderBottom: "1px solid var(--color-border)",
-                    fontSize: "0.875rem", color: "var(--color-text-3)",
-                  }}>
-                    <span>
-                      <b style={{ color: "var(--color-text-1)", fontSize: "1rem", fontWeight: 750 }}>{fitsBudget ? "Mains that fit" : "Mains"}</b>
-                      {" · "}{mains.length}
-                    </span>
-                    <span style={{ fontSize: "0.75rem" }}>Biggest first</span>
-                  </div>
-
-                  {mains.length > 0 ? (
-                    mains.map(({ item, station }) => (
-                      <DishRow key={item.id} item={item} where={station} remaining={remaining} onSelect={(i) => handleSelectItem(i, location.name, meal.name)} />
-                    ))
-                  ) : fitsBudget && mainsAnyBudget.length > 0 ? (
-                    <Empty
-                      title={remaining <= 0 ? `You've reached your calories ${dayLabel}` : `No main fits your ${formatWhole(remaining)} cal left`}
-                      body={`${mainsAnyBudget.length} ${mainsAnyBudget.length === 1 ? "is" : "are"} on the menu if you want to go over, or search for something smaller.`}
-                      action={{ label: "Show all mains", run: () => setFitsBudget(false) }}
-                    />
-                  ) : activeDietaryFilters.length > 0 || highProtein ? (
-                    <Empty
-                      title={`No ${filterWords(activeDietaryFilters, highProtein)} mains at ${placeName} for ${meal.name.toLowerCase()}`}
-                      body={other ? `Try ${shortName(other.name)}, or search for anything that fits.` : "Search for anything that fits."}
-                      action={other ? { label: `Try ${shortName(other.name)}`, run: () => selectLocation(other.slug) } : undefined}
-                    />
-                  ) : (
-                    <Empty title="No mains listed for this meal" body="Search to see everything being served." />
-                  )}
-
-                  <button
-                    className="glass pressable"
-                    onClick={() => setMenuSheet("search")}
-                    style={{
-                      width: "100%", display: "flex", alignItems: "center", gap: "0.75rem",
-                      marginTop: "1rem", padding: "0.85rem 0.9rem 0.85rem 1rem", borderRadius: "var(--radius-xl)",
-                      cursor: "pointer", textAlign: "left", color: "var(--color-text-1)",
-                    }}
-                  >
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: "0.875rem", fontWeight: 700 }}>Looking for something else?</span>
-                      <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-2)", marginTop: 2 }}>
-                        Search every dish at Higgins and The Bistro
-                      </span>
-                    </span>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: 6, height: 36, padding: "0 0.85rem 0 0.7rem", flexShrink: 0,
-                      borderRadius: "var(--radius-full)", background: "var(--color-surface-2)", border: "1px solid var(--color-border-2)",
-                      fontSize: "0.8rem", fontWeight: 700,
-                    }}>
-                      <SearchIcon size={15} strokeWidth={2.2} /> Search
-                    </span>
-                  </button>
-                </>
+                <Empty
+                  title={filtersOn ? "No dishes match your filters" : "Nothing listed for this meal"}
+                  body={filtersOn ? (fitsBudget && remaining <= 0 ? "You've used today's calories, so Fits budget hides everything." : "Try fewer filters, or another meal.") : "Try another meal or another day."}
+                  action={filtersOn ? { label: "Clear filters", run: clearFilters } : undefined}
+                />
               )}
             </LocationCardErrorBoundary>
           )}
         </>
       )}
 
-      {menuSheet === "search" && menuArea === "clark" && (
+      {menuSheet === "search" && (
         <MenuSearchSheet
-          locations={locations}
-          slug={location?.slug ?? ""}
+          locations={searchLocations}
+          slug={menuArea === "worcester" ? "" : location?.slug ?? ""}
           meal={mealName}
-          remaining={remaining}
+          scope={menuArea === "worcester" ? "the restaurants near campus" : "Higgins and The Bistro"}
           onSelect={handleSelectItem}
-          onClose={closeSearch}
+          onClose={() => { setMenuSheet(null); ui.setSearchQuery(""); }}
         />
+      )}
+
+      {menuSheet === "filters" && (
+        <FiltersSheet remaining={remaining} dietsOnly={menuArea === "worcester"} onClose={() => setMenuSheet(null)} />
       )}
 
       {menuSheet === "date" && (
@@ -258,11 +209,47 @@ export default function MenuPage() {
   );
 }
 
-/** "vegan, high protein" for the empty state. */
-function filterWords(diets: string[], highProtein: boolean): string {
-  const words = DIET_CHIPS.filter((d) => diets.includes(d.icon)).map((d) => d.label.toLowerCase());
-  if (highProtein) words.push("high-protein");
-  return words.join(", ");
+interface Filter {
+  diets: string[];
+  highProtein: boolean;
+  /** Only dishes within this many calories; null for no limit. */
+  maxCalories: number | null;
+}
+
+/** The meal's dishes that pass the filters, by station or by food group. */
+function buildSections(meal: MealPeriod, groupBy: "station" | "food", f: Filter): DishSection[] {
+  const pass = (items: MenuItem[]) =>
+    filterByDietary(items ?? [], f.diets).filter((i) =>
+      (!f.highProtein || num(i.protein) >= HIGH_PROTEIN_G) &&
+      (f.maxCalories === null || num(i.calories) <= f.maxCalories));
+
+  if (groupBy === "station") {
+    return (meal.stations ?? [])
+      .map((s) => ({
+        key: `${s.id}-${s.name}`,
+        title: stationLabel(s.name ?? ""),
+        dishes: pass(s.items).map((item) => {
+          const g = FOOD_GROUP_BY_ID[foodGroupOf(item, s.name)];
+          return { item, tag: { label: g.label, color: g.color } };
+        }),
+      }))
+      .filter((s) => s.dishes.length > 0);
+  }
+
+  // By food group: each dish once, even where two stations serve it
+  const byGroup = new Map<FoodGroup, DishSection["dishes"]>();
+  const seen = new Set<string>();
+  for (const s of meal.stations ?? []) {
+    for (const item of pass(s.items)) {
+      const k = (item.name ?? "").toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const g = foodGroupOf(item, s.name);
+      if (!byGroup.has(g)) byGroup.set(g, []);
+      byGroup.get(g)!.push({ item, tag: { label: stationLabel(s.name ?? "") } });
+    }
+  }
+  return FOOD_GROUPS.filter((g) => byGroup.has(g.id)).map((g) => ({ key: g.id, title: g.label, dishes: byGroup.get(g.id)! }));
 }
 
 function Empty({ title, body, action }: { title: string; body: string; action?: { label: string; run: () => void } }) {
@@ -271,26 +258,22 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
       <UtensilsIcon size={32} style={{ color: "var(--color-text-3)", display: "block", margin: "0 auto 0.6rem" }} />
       <p style={{ margin: 0, fontWeight: 650, color: "var(--color-text-1)" }}>{title}</p>
       <p style={{ margin: "0.35rem auto 0", maxWidth: 300, fontSize: "0.8rem", color: "var(--color-text-3)", lineHeight: 1.5 }}>{body}</p>
-      {action && (
-        <button className="btn-ghost" onClick={action.run} style={{ marginTop: "0.85rem" }}>{action.label}</button>
-      )}
+      {action && <button className="btn-ghost" onClick={action.run} style={{ marginTop: "0.85rem" }}>{action.label}</button>}
     </div>
   );
 }
 
-/** Rows shaped like DishRow while the menu loads. */
-function MainsSkeleton() {
+/** Shaped like the meal bar, switch and sections while the menu loads. */
+function MenuSkeleton() {
   return (
-    <div role="status" aria-busy="true" aria-label="Loading menu" style={{ marginTop: "1.1rem" }}>
-      <div className="skeleton" style={{ width: "40%", height: 16, marginBottom: 14 }} />
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "0.8rem 0", borderBottom: "1px solid var(--color-border)", opacity: 1 - i * 0.14 }}>
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
-            <div className="skeleton" style={{ width: `${70 - i * 6}%`, height: 14 }} />
-            <div className="skeleton" style={{ width: "55%", height: 11 }} />
-          </div>
-          <div className="skeleton" style={{ width: 36, height: 36, borderRadius: "50%" }} />
-        </div>
+    <div role="status" aria-busy="true" aria-label="Loading menu" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="skeleton" style={{ width: "55%", height: 16 }} />
+        <div className="skeleton" style={{ width: 100, height: 40, borderRadius: "var(--radius-full)" }} />
+      </div>
+      <div className="skeleton" style={{ height: 48, borderRadius: "var(--radius-full)" }} />
+      {[220, 64, 64, 64].map((h, i) => (
+        <div key={i} className="skeleton" style={{ height: h, borderRadius: "var(--radius-xl)", opacity: 1 - i * 0.15 }} />
       ))}
     </div>
   );

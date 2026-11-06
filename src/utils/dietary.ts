@@ -27,7 +27,7 @@ export function toDietaryIcon(restriction: string): string {
   return LABEL_TO_ICON[key] ?? key;
 }
 
-/** Diets the menu can filter by: the chips in MenuSearch. */
+/** Diets the menu can filter by: the diet chips in FiltersSheet. */
 export const FILTERABLE_DIETS = ["vegan", "vegetarian", "made_without_gluten", "halal", "kosher"];
 
 /** A profile's saved diets as menu filter icons, leaving out any the menu can't filter. */
